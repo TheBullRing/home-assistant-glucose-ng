@@ -1,0 +1,123 @@
+
+blueprint:
+  name: Glucose NG - Alertas
+  domain: automation
+  input:
+    sensor_glucose:
+      name: Sensor de glucosa
+      selector:
+        entity:
+          domain: sensor
+    sensor_rate:
+      name: Sensor de velocidad (mg/dL/min)
+      selector:
+        entity:
+          domain: sensor
+    low:
+      name: Umbral bajo (mg/dL)
+      default: 70
+      selector:
+        number:
+          min: 40
+          max: 120
+          step: 1
+    high:
+      name: Umbral alto (mg/dL)
+      default: 180
+      selector:
+        number:
+          min: 150
+          max: 350
+          step: 1
+    rate_drop:
+      name: Caída rápida (mg/dL/min)
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 10
+          step: 0.5
+    notify_target:
+      name: Servicio de notificación (opcional)
+      default: ''
+      selector:
+        text:
+
+mode: queued
+max_exceeded: silent
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input sensor_glucose
+    below: !input low
+  - platform: numeric_state
+    entity_id: !input sensor_glucose
+    above: !input high
+  - platform: numeric_state
+    entity_id: !input sensor_rate
+    below: "{{ -1 * (rate_drop | float) }}"
+
+variables:
+  low: !input low
+  high: !input high
+  rate_drop: !input rate_drop
+  notify_target: !input notify_target
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: 0
+        sequence:
+          - variables:
+              title: "Hipoglucemia"
+              msg: "Glucosa {{ states(trigger.entity_id) }} mg/dL < {{ low }}"
+          - choose:
+              - conditions: "{{ notify_target != '' }}"
+                sequence:
+                  - service: "{{ notify_target }}"
+                    data:
+                      title: "[Glucose NG] {{ title }}"
+                      message: "{{ msg }}"
+          - service: persistent_notification.create
+            data:
+              title: "[Glucose NG] {{ title }}"
+              message: "{{ msg }}"
+      - conditions:
+          - condition: trigger
+            id: 1
+        sequence:
+          - variables:
+              title: "Hiperglucemia"
+              msg: "Glucosa {{ states(trigger.entity_id) }} mg/dL > {{ high }}"
+          - choose:
+              - conditions: "{{ notify_target != '' }}"
+                sequence:
+                  - service: "{{ notify_target }}"
+                    data:
+                      title: "[Glucose NG] {{ title }}"
+                      message: "{{ msg }}"
+          - service: persistent_notification.create
+            data:
+              title: "[Glucose NG] {{ title }}"
+              message: "{{ msg }}"
+      - conditions:
+          - condition: trigger
+            id: 2
+        sequence:
+          - variables:
+              title: "Caída rápida"
+              msg: "Velocidad {{ states(trigger.entity_id) }} mg/dL/min ≤ -{{ rate_drop }}"
+          - choose:
+              - conditions: "{{ notify_target != '' }}"
+                sequence:
+                  - service: "{{ notify_target }}"
+                    data:
+                      title: "[Glucose NG] {{ title }}"
+                      message: "{{ msg }}"
+          - service: persistent_notification.create
+            data:
+              title: "[Glucose NG] {{ title }}"
+              message: "{{ msg }}"

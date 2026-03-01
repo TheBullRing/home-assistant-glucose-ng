@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Home Assistant Glucose NG (NightScout Gateway)",
+        "description": "Introduce secreto compartido, nombre del sensor y umbrales.",
+        "data": {
+          "shared_secret": "Secreto compartido",
+          "name": "Nombre del sensor",
+          "threshold_low": "Umbral bajo (mg/dL)",
+          "threshold_high": "Umbral alto (mg/dL)",
+          "rate_drop": "Caída rápida |tasa| (mg/dL/min)"
+        }
+      }
+    },
+    "error": {
+      "range_invalid": "El umbral bajo debe ser menor que el alto",
+      "invalid": "Valores no válidos"
+    }
+  }
+}
