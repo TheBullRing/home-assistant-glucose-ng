@@ -1,35 +1,34 @@
-def to_float(v):
-    # Acepta "70", "70.0", "70,0"
-    if isinstance(v, str):
-        v = v.replace(',', '.')
-    return float(v)
-
 from __future__ import annotations
 import voluptuous as vol
 from homeassistant import config_entries
 from .const import (
     DOMAIN, CONF_SHARED_SECRET, CONF_NAME, DEFAULT_NAME,
-    CONF_LOW, CONF_HIGH, CONF_RATE_DROP, DEFAULT_LOW, DEFAULT_HIGH, DEFAULT_RATE_DROP
+    CONF_LOW, CONF_HIGH, CONF_RATE_DROP,
+    DEFAULT_LOW, DEFAULT_HIGH, DEFAULT_RATE_DROP
 )
 
+def to_float(v):
+    """Coerce that accepts '70', '70.0' or '70,0'."""
+    if isinstance(v, str):
+        v = v.replace(',', '.')
+    return float(v)
 
- DATA_SCHEMA = vol.Schema({
-     vol.Required(CONF_SHARED_SECRET): str,
-     vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
-     vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(to_float),
-     vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(to_float),
-     vol.Optional(CONF_RATE_DROP, default=DEFAULT_RATE_DROP): vol.Coerce(to_float),
- })
-
+DATA_SCHEMA = vol.Schema({
+    vol.Required(CONF_SHARED_SECRET): str,
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+    vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(to_float),
+    vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(to_float),
+    vol.Optional(CONF_RATE_DROP, default=DEFAULT_RATE_DROP): vol.Coerce(to_float),
+})
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
-            # Validaciones básicas
             try:
+                # Ya vienen convertidos a float por vol.Coerce
                 low = user_input.get(CONF_LOW)
                 high = user_input.get(CONF_HIGH)
                 if low >= high:
@@ -47,7 +46,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
             except Exception:
                 errors["base"] = "invalid"
-        return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA, errors=errors)
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=DATA_SCHEMA,
+            errors=errors
+        )
 
     async def async_step_import(self, user_input=None):
         return await self.async_step_user(user_input)
@@ -60,6 +64,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         return await self.async_step_user(user_input)
 
     async def async_step_user(self, user_input=None):
+        # Si más adelante añades opciones editables, constrúyelas aquí
         return self.async_create_entry(title="", data={})
 
 async def async_get_options_flow(config_entry):
