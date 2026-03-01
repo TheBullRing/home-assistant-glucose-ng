@@ -1,3 +1,8 @@
+def to_float(v):
+    # Acepta "70", "70.0", "70,0"
+    if isinstance(v, str):
+        v = v.replace(',', '.')
+    return float(v)
 
 from __future__ import annotations
 import voluptuous as vol
@@ -7,13 +12,15 @@ from .const import (
     CONF_LOW, CONF_HIGH, CONF_RATE_DROP, DEFAULT_LOW, DEFAULT_HIGH, DEFAULT_RATE_DROP
 )
 
-DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_SHARED_SECRET): str,
-    vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
-    vol.Optional(CONF_LOW, default=DEFAULT_LOW): float,
-    vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): float,
-    vol.Optional(CONF_RATE_DROP, default=DEFAULT_RATE_DROP): float,
-})
+
+ DATA_SCHEMA = vol.Schema({
+     vol.Required(CONF_SHARED_SECRET): str,
+     vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+     vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(to_float),
+     vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(to_float),
+     vol.Optional(CONF_RATE_DROP, default=DEFAULT_RATE_DROP): vol.Coerce(to_float),
+ })
+
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -23,8 +30,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Validaciones básicas
             try:
-                low = float(user_input.get(CONF_LOW))
-                high = float(user_input.get(CONF_HIGH))
+                low = user_input.get(CONF_LOW)
+                high = user_input.get(CONF_HIGH)
                 if low >= high:
                     errors["base"] = "range_invalid"
                 else:
@@ -35,7 +42,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_NAME: user_input.get(CONF_NAME, DEFAULT_NAME),
                             CONF_LOW: low,
                             CONF_HIGH: high,
-                            CONF_RATE_DROP: float(user_input.get(CONF_RATE_DROP)),
+                            CONF_RATE_DROP: user_input.get(CONF_RATE_DROP),
                         }
                     )
             except Exception:
