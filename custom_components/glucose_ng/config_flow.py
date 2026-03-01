@@ -7,18 +7,13 @@ from .const import (
     DEFAULT_LOW, DEFAULT_HIGH, DEFAULT_RATE_DROP
 )
 
-def to_float(v):
-    """Coerce that accepts '70', '70.0' or '70,0'."""
-    if isinstance(v, str):
-        v = v.replace(',', '.')
-    return float(v)
 
 DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_SHARED_SECRET): str,
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
-    vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(to_float),
-    vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(to_float),
-    vol.Optional(CONF_RATE_DROP, default=DEFAULT_RATE_DROP): vol.Coerce(to_float),
+    vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(float),
+    vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(float),
+    vol.Optional(CONF_RATE_DROP, default=DEFAUL
 })
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -41,7 +36,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_NAME: user_input.get(CONF_NAME, DEFAULT_NAME),
                             CONF_LOW: low,
                             CONF_HIGH: high,
-                            CONF_RATE_DROP: user_input.get(CONF_RATE_DROP),
+                            CONF_RATE_DROP: user_input.get(CONF_RATE_DROP),  # float
                         }
                     )
             except Exception:
