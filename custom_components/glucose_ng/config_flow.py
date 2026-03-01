@@ -13,7 +13,7 @@ DATA_SCHEMA = vol.Schema({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
     vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(float),
     vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(float),
-    vol.Optional(CONF_RATE_DROP, default=DEFAUL,
+    vol.Optional(CONF_RATE_DROP, default=str(DEFAULT_RATE_DROP)): str,
 })
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
