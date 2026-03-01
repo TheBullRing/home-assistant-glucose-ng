@@ -2,10 +2,10 @@
   "domain": "glucose_ng",
   "name": "Home Assistant Glucose NG (NightScout Gateway)",
   "version": "0.1.0",
-  "documentation": "https://example.local/ha-glucose-ng",
+  "documentation": "https://github.com/TheBullRing/home-assistant-glucose-ng/",
   "requirements": [],
   "codeowners": [
-    "@your-github"
+    "@TheBullRing"
   ],
   "iot_class": "local_push",
   "integration_type": "hub",
