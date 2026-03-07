@@ -13,3 +13,5 @@ DEFAULT_HIGH = 180.0
 DEFAULT_RATE_DROP = 3.0  # mg/dL/min
 
 SIGNAL_NEW_READING = "glucose_ng_new_reading"
+SIGNAL_NEW_TREATMENT = "glucose_ng_new_treatment"
+SIGNAL_NEW_DEVICESTATUS = "glucose_ng_new_devicestatus"

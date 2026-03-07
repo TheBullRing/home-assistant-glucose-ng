@@ -12,9 +12,11 @@ It emulates the Nightscout v1/v3 HTTP API so that Juggluco posts data straight t
 ## Features
 
 - **Drop-in Nightscout emulation** — implements the exact endpoints Juggluco calls:
+  - `GET /api/v1/status` and `GET /api/v3/version` — server compatibility handshake
   - `GET /api/v2/authorization/request/<token>` — auth handshake
-  - `POST /api/v1/entries` — Nightscout v1 entries
-  - `POST /api/v3/entries` — Nightscout v3 entries
+  - `POST /api/v1/entries` and `POST /api/v3/entries` — Nightscout glucose entries
+  - `POST /api/v1/treatments` and `POST /api/v3/treatments` — Insulin, carbs, and notes
+  - `POST /api/v1/devicestatus` and `POST /api/v3/devicestatus` — Uploader battery and stats
 - **Multi-device support** — add one config entry per person/device, each with its own secret. Every entry gets its own isolated set of sensors and its own HA Device.
 - **Three sensors per device:**
   - `sensor.<name>` — current glucose value in mg/dL
@@ -96,6 +98,7 @@ In the Juggluco app, configure the **Nightscout** uploader:
 Juggluco will call:
 - `GET https://your-ha-host/api/v2/authorization/request/<token>` to verify the token.
 - `POST https://your-ha-host/api/v3/entries` with the glucose data.
+- `POST https://your-ha-host/api/v3/treatments` when you enter "Amounts" (insulin, carbs).
 
 > **Note for nginx users:** HA's auth middleware can strip the `Authorization` header before it reaches the integration. The integration handles this automatically using an IP-based session: after the GET auth succeeds, the source IP is trusted for 5 minutes, so the POST goes through without needing the header.
 
@@ -128,6 +131,17 @@ The integration fires a `glucose_ng_alert` **HA event** and creates a **persiste
 | Rapid drop | rate ≤ −`rate_drop` mg/dL/min |
 
 The event payload contains `title`, `message`, and `entry_id` (useful for routing alerts per person in automations).
+
+### Treatments and Device Status Events
+
+When Juggluco (or any uploader) sends Treatments (insulin/carbs) or DeviceStatus (battery levels), the integration accepts the data and fires standard Home Assistant events:
+
+| Event Type | Trigger | Payload includes |
+|------------|---------|-------------------|
+| `glucose_ng_new_treatment` | POST to `/api/v3/treatments` | `entry_id`, `payload` (JSON dict w/ insulin, carbs, eventType) |
+| `glucose_ng_new_devicestatus` | POST to `/api/v3/devicestatus` | `entry_id`, `payload` (JSON w/ uploader info, battery) |
+
+You can use these events in Automation Triggers (Trigger type: *Event*) to log data, update helpers, or send custom notifications.
 
 ### Alert Automation Blueprint
 
@@ -199,9 +213,15 @@ curl -X POST "http://YOUR_HA_IP:8123/api/v3/entries" \
   -H "Content-Type: application/json" \
   -H "api-secret: $SECRET_SHA1" \
   -d '[{"sgv": 120, "date": '"$(date +%s%3N)"', "direction": "Flat", "type": "sgv"}]'
+
+# Post a test treatment (Insulin)
+curl -X POST "http://YOUR_HA_IP:8123/api/v3/treatments" \
+  -H "Content-Type: application/json" \
+  -H "api-secret: $SECRET_SHA1" \
+  -d '[{"eventType": "Correction Bolus", "insulin": 2.5, "created_at": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}]'
 ```
 
-Expected response: `{"ok": true, "count": 1}`.  
+Expected response `{"ok": true, "count": 1}`.
 Then check **Developer Tools → States** for `sensor.<your_name>`.
 
 ---

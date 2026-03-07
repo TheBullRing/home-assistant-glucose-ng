@@ -9,7 +9,7 @@ from aiohttp import web
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from .const import SIGNAL_NEW_READING
+from .const import SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT, SIGNAL_NEW_DEVICESTATUS
 
 _LOGGER = logging.getLogger(__name__)
 _registered = False  # Views are registered once for all entries
@@ -164,13 +164,17 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
 # HTTP Views
 # ---------------------------------------------------------------------------
 
-class _BaseEntriesView(HomeAssistantView):
+class _BasePostEventView(HomeAssistantView):
+    """
+    Generic POST view that accepts an array of JSON objects (entries, treatments, devicestatus),
+    authenticates the request, and dispatches a Home Assistant event/signal for each item.
+    """
     requires_auth = False
-    name = "api:glucose_ng:entries_base"
 
-    def __init__(self, hass: HomeAssistant, get_token_map: Callable[[], dict[str, str]]) -> None:
+    def __init__(self, hass: HomeAssistant, get_token_map: Callable[[], dict[str, str]], signal_name: str) -> None:
         self.hass = hass
         self._get_token_map = get_token_map
+        self._signal_name = signal_name
 
     async def post(self, request: web.Request):
         _LOGGER.debug(
@@ -193,42 +197,83 @@ class _BaseEntriesView(HomeAssistantView):
             _LOGGER.error("%s: failed to parse JSON: %s", self.__class__.__name__, exc)
             return web.Response(status=HTTPStatus.BAD_REQUEST, text="invalid json")
 
-        entries = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
-        _LOGGER.debug("%s: parsed %d entries for entry_id=%s", self.__class__.__name__, len(entries), entry_id)
+        items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+        _LOGGER.debug("%s: parsed %d items for entry_id=%s", self.__class__.__name__, len(items), entry_id)
 
         count_ok = 0
-        signal = f"{SIGNAL_NEW_READING}_{entry_id}"
-        for e in entries:
-            sgv = e.get("sgv") or e.get("mbg")
-            if sgv is None:
-                _LOGGER.debug("Entry skipped (no sgv/mbg): %s", e)
-                continue
-            epoch_ms = e.get("date")
-            reading = {
-                "sgv": float(sgv),
-                "epoch_ms": float(epoch_ms) if epoch_ms is not None else None,
-                "direction": e.get("direction", "unknown"),
-                "raw": e,
-            }
-            _LOGGER.debug(
-                "Dispatching signal '%s': sgv=%.1f direction=%s",
-                signal, reading["sgv"], reading["direction"],
-            )
-            async_dispatcher_send(self.hass, signal, reading)
+        signal = f"{self._signal_name}_{entry_id}"
+        
+        for item in items:
+            # Special parsing only if it's the entries (glucose readings) endpoint,
+            # otherwise just dispatch the raw JSON dictionary to the event bus.
+            if self._signal_name == SIGNAL_NEW_READING:
+                sgv = item.get("sgv") or item.get("mbg")
+                if sgv is None:
+                    _LOGGER.debug("Entry skipped (no sgv/mbg): %s", item)
+                    continue
+                epoch_ms = item.get("date")
+                payload = {
+                    "sgv": float(sgv),
+                    "epoch_ms": float(epoch_ms) if epoch_ms is not None else None,
+                    "direction": item.get("direction", "unknown"),
+                    "raw": item,
+                }
+            else:
+                payload = item
+
+            _LOGGER.debug("Dispatching signal '%s'", signal)
+            async_dispatcher_send(self.hass, signal, payload)
+            
+            # Fire a standard Home Assistant event for treatments/devicestatus so users can automate
+            if self._signal_name != SIGNAL_NEW_READING:
+                event_type = self._signal_name
+                event_data = {
+                    "entry_id": entry_id,
+                    "payload": payload
+                }
+                self.hass.bus.async_fire(event_type, event_data)
+
             count_ok += 1
 
-        _LOGGER.info("%s: accepted %d/%d entries (entry_id=%s)", self.__class__.__name__, count_ok, len(entries), entry_id)
+        _LOGGER.info("%s: accepted %d/%d items (entry_id=%s)", self.__class__.__name__, count_ok, len(items), entry_id)
         return web.json_response({"ok": True, "count": count_ok}, status=HTTPStatus.OK)
 
 
-class GlucoseNGV1EntriesView(_BaseEntriesView):
+class GlucoseNGV1EntriesView(_BasePostEventView):
     url = "/api/v1/entries"
     name = "api:glucose_ng:v1_entries"
+    def __init__(self, hass, get_token_map):
+        super().__init__(hass, get_token_map, SIGNAL_NEW_READING)
 
-
-class GlucoseNGV3EntriesView(_BaseEntriesView):
+class GlucoseNGV3EntriesView(_BasePostEventView):
     url = "/api/v3/entries"
     name = "api:glucose_ng:v3_entries"
+    def __init__(self, hass, get_token_map):
+        super().__init__(hass, get_token_map, SIGNAL_NEW_READING)
+
+class GlucoseNGV1TreatmentsView(_BasePostEventView):
+    url = "/api/v1/treatments"
+    name = "api:glucose_ng:v1_treatments"
+    def __init__(self, hass, get_token_map):
+        super().__init__(hass, get_token_map, SIGNAL_NEW_TREATMENT)
+
+class GlucoseNGV3TreatmentsView(_BasePostEventView):
+    url = "/api/v3/treatments"
+    name = "api:glucose_ng:v3_treatments"
+    def __init__(self, hass, get_token_map):
+        super().__init__(hass, get_token_map, SIGNAL_NEW_TREATMENT)
+
+class GlucoseNGV1DeviceStatusView(_BasePostEventView):
+    url = "/api/v1/devicestatus"
+    name = "api:glucose_ng:v1_devicestatus"
+    def __init__(self, hass, get_token_map):
+        super().__init__(hass, get_token_map, SIGNAL_NEW_DEVICESTATUS)
+
+class GlucoseNGV3DeviceStatusView(_BasePostEventView):
+    url = "/api/v3/devicestatus"
+    name = "api:glucose_ng:v3_devicestatus"
+    def __init__(self, hass, get_token_map):
+        super().__init__(hass, get_token_map, SIGNAL_NEW_DEVICESTATUS)
 
 
 class GlucoseNGV2AuthView(HomeAssistantView):
@@ -274,6 +319,51 @@ class GlucoseNGV2AuthView(HomeAssistantView):
         )
 
 
+class GlucoseNGStatusView(HomeAssistantView):
+    """
+    Nightscout v1 status endpoint.
+    Some uploaders verify server status before pushing data.
+    """
+    requires_auth = False
+    url = "/api/v1/status"
+    name = "api:glucose_ng:v1_status"
+
+    async def get(self, request: web.Request):
+        return web.json_response({
+            "status": "ok",
+            "name": "Home Assistant Glucose NG",
+            "version": "14.2.0",  # Fake Nightscout version
+            "serverTime": int(time.time() * 1000),
+            "settings": {
+                "units": "mg/dL",
+                "timeFormat": 24,
+                "nightMode": False,
+                "editMode": True,
+                "showRawbg": "never",
+                "customTitle": "Home Assistant",
+                "theme": "colors",
+                "alarmUrgentHigh": True,
+                "alarmHigh": True,
+                "alarmLow": True,
+                "alarmUrgentLow": True,
+            }
+        }, status=HTTPStatus.OK)
+
+
+class GlucoseNGVersionView(HomeAssistantView):
+    """
+    Nightscout v3 version endpoint.
+    """
+    requires_auth = False
+    url = "/api/v3/version"
+    name = "api:glucose_ng:v3_version"
+
+    async def get(self, request: web.Request):
+        return web.json_response({
+            "version": "14.2.0",
+            "name": "Home Assistant Glucose NG"
+        }, status=HTTPStatus.OK)
+
 # ---------------------------------------------------------------------------
 # Registration helpers
 # ---------------------------------------------------------------------------
@@ -283,14 +373,24 @@ def register_http_views(hass: HomeAssistant, get_token_map: Callable[[], dict[st
     if _registered:
         _LOGGER.debug("HTTP views already registered, skipping")
         return
-    v1 = GlucoseNGV1EntriesView(hass, get_token_map)
-    v3 = GlucoseNGV3EntriesView(hass, get_token_map)
-    v2 = GlucoseNGV2AuthView(hass, get_token_map)
-    hass.http.register_view(v1)
-    hass.http.register_view(v3)
-    hass.http.register_view(v2)
+    
+    views = [
+        GlucoseNGV1EntriesView(hass, get_token_map),
+        GlucoseNGV3EntriesView(hass, get_token_map),
+        GlucoseNGV1TreatmentsView(hass, get_token_map),
+        GlucoseNGV3TreatmentsView(hass, get_token_map),
+        GlucoseNGV1DeviceStatusView(hass, get_token_map),
+        GlucoseNGV3DeviceStatusView(hass, get_token_map),
+        GlucoseNGV2AuthView(hass, get_token_map),
+        GlucoseNGStatusView(),
+        GlucoseNGVersionView(),
+    ]
+    
+    for view in views:
+        hass.http.register_view(view)
+        
     _registered = True
-    _LOGGER.debug("Registered HTTP views: %s, %s, %s", v1.url, v3.url, v2.url)
+    _LOGGER.debug("Registered HTTP views: %s", ", ".join(v.url for v in views))
 
 
 def unregister_http_views(hass: HomeAssistant) -> None:
