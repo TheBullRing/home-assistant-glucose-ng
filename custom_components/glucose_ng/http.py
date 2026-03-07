@@ -9,6 +9,7 @@ from aiohttp import web
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.components import recorder
 from homeassistant.components.recorder import history
 import homeassistant.util.dt as dt_util
 from homeassistant.util import slugify
@@ -274,8 +275,8 @@ class _BasePostEventView(HomeAssistantView):
         
         _LOGGER.debug("%s: Querying HA history for %s since %s", self.__class__.__name__, entity_id, start_time)
         
-        # Run DB query in executor
-        states_dict = await self.hass.async_add_executor_job(
+        # Run DB query in recorder's executor to avoid HA warnings
+        states_dict = await recorder.get_instance(self.hass).async_add_executor_job(
             history.get_significant_states,
             self.hass,
             start_time,
