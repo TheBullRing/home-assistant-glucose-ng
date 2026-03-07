@@ -9,7 +9,11 @@ from aiohttp import web
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from .const import SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT, SIGNAL_NEW_DEVICESTATUS
+from homeassistant.components.recorder import history
+import homeassistant.util.dt as dt_util
+from homeassistant.util import slugify
+from datetime import timedelta
+from .const import DOMAIN, SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT, SIGNAL_NEW_DEVICESTATUS
 
 _LOGGER = logging.getLogger(__name__)
 _registered = False  # Views are registered once for all entries
@@ -238,39 +242,128 @@ class _BasePostEventView(HomeAssistantView):
         _LOGGER.info("%s: accepted %d/%d items (entry_id=%s)", self.__class__.__name__, count_ok, len(items), entry_id)
         return web.json_response({"ok": True, "count": count_ok}, status=HTTPStatus.OK)
 
+    async def get(self, request: web.Request):
+        """
+        Handle GET requests from Nightscout clients/followers.
+        For entries, we query the Home Assistant recorder database to return historical states.
+        For others, we return an empty array `[]` so the client doesn't crash. 
+        """
+        _LOGGER.debug("%s GET received. URL=%s", self.__class__.__name__, request.url)
+        
+        if self._signal_name != SIGNAL_NEW_READING:
+            return web.json_response([], status=HTTPStatus.OK)
+            
+        token_map = self._get_token_map()
+        entry_id = _check_auth(request, token_map)
+        if not entry_id:
+            _LOGGER.warning("%s GET: authentication failed → 401", self.__class__.__name__)
+            return web.Response(status=HTTPStatus.UNAUTHORIZED, text="unauthorized")
+
+        # Get the configured name for this entry to construct the entity_id
+        entry_data = self.hass.data.get(DOMAIN, {}).get("entries", {}).get(entry_id, {})
+        name = entry_data.get("name", "Glucosa")
+        entity_id = f"sensor.{slugify(name)}"
+        
+        try:
+            count = int(request.rel_url.query.get("count", 10))
+        except ValueError:
+            count = 10
+            
+        # We query the last 24 hours just in case, but limit to `count` items
+        start_time = dt_util.utcnow() - timedelta(hours=24)
+        
+        _LOGGER.debug("%s: Querying HA history for %s since %s", self.__class__.__name__, entity_id, start_time)
+        
+        # Run DB query in executor
+        states_dict = await self.hass.async_add_executor_job(
+            history.get_significant_states,
+            self.hass,
+            start_time,
+            None, # end_time
+            [entity_id],
+            None, # filters
+            True, # include_start_time_state
+            True, # significant_changes_only
+            False, # minimal_response (we need attributes)
+            False, # no_attributes
+        )
+        
+        states = states_dict.get(entity_id, [])
+        _LOGGER.debug("%s: Found %d historical states for %s", self.__class__.__name__, len(states), entity_id)
+
+        ns_entries = []
+        for s in states:
+            if s.state in (None, "unknown", "unavailable"):
+                continue
+                
+            try:
+                sgv = float(s.state)
+            except ValueError:
+                continue
+                
+            epoch_ms = s.attributes.get("epoch_ms", int(s.last_updated.timestamp() * 1000))
+            direction = s.attributes.get("direction", "NONE")
+            
+            ns_entries.append({
+                "sgv": sgv,
+                "date": epoch_ms,
+                "dateString": s.last_updated.isoformat(),
+                "direction": direction,
+                "type": "sgv",
+                "sysTime": s.last_updated.isoformat()
+            })
+            
+        # Nightscout expects newest first
+        ns_entries.reverse()
+        # Apply count limit
+        ns_entries = ns_entries[:count]
+        
+        _LOGGER.debug("%s GET returning %d entries", self.__class__.__name__, len(ns_entries))
+        return web.json_response(ns_entries, status=HTTPStatus.OK)
+
+
+class _RouteView(_BasePostEventView):
+    """ Helper class to register both /endpoint and /endpoint.json easily """
+    pass
 
 class GlucoseNGV1EntriesView(_BasePostEventView):
     url = "/api/v1/entries"
+    extra_urls = ["/api/v1/entries.json"]
     name = "api:glucose_ng:v1_entries"
     def __init__(self, hass, get_token_map):
         super().__init__(hass, get_token_map, SIGNAL_NEW_READING)
 
 class GlucoseNGV3EntriesView(_BasePostEventView):
     url = "/api/v3/entries"
+    extra_urls = ["/api/v3/entries.json"]
     name = "api:glucose_ng:v3_entries"
     def __init__(self, hass, get_token_map):
         super().__init__(hass, get_token_map, SIGNAL_NEW_READING)
 
 class GlucoseNGV1TreatmentsView(_BasePostEventView):
     url = "/api/v1/treatments"
+    extra_urls = ["/api/v1/treatments.json"]
     name = "api:glucose_ng:v1_treatments"
     def __init__(self, hass, get_token_map):
         super().__init__(hass, get_token_map, SIGNAL_NEW_TREATMENT)
 
 class GlucoseNGV3TreatmentsView(_BasePostEventView):
     url = "/api/v3/treatments"
+    extra_urls = ["/api/v3/treatments.json"]
     name = "api:glucose_ng:v3_treatments"
     def __init__(self, hass, get_token_map):
         super().__init__(hass, get_token_map, SIGNAL_NEW_TREATMENT)
 
 class GlucoseNGV1DeviceStatusView(_BasePostEventView):
     url = "/api/v1/devicestatus"
+    extra_urls = ["/api/v1/devicestatus.json"]
     name = "api:glucose_ng:v1_devicestatus"
     def __init__(self, hass, get_token_map):
         super().__init__(hass, get_token_map, SIGNAL_NEW_DEVICESTATUS)
 
 class GlucoseNGV3DeviceStatusView(_BasePostEventView):
     url = "/api/v3/devicestatus"
+    extra_urls = ["/api/v3/devicestatus.json"]
     name = "api:glucose_ng:v3_devicestatus"
     def __init__(self, hass, get_token_map):
         super().__init__(hass, get_token_map, SIGNAL_NEW_DEVICESTATUS)
