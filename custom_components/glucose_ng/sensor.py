@@ -1,42 +1,64 @@
 
 from __future__ import annotations
-import logging, time
+import logging
+import time
 from typing import Optional
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.entity import DeviceInfo
 from .const import (
     DOMAIN, SIGNAL_NEW_READING, CONF_NAME, DEFAULT_NAME,
-    CONF_LOW, CONF_HIGH, CONF_RATE_DROP
+    CONF_LOW, CONF_HIGH, CONF_RATE_DROP,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    data = hass.data[DOMAIN][entry.entry_id]
+    data = hass.data[DOMAIN]["entries"][entry.entry_id]
     name = data.get(CONF_NAME, DEFAULT_NAME)
     low = float(data.get(CONF_LOW))
     high = float(data.get(CONF_HIGH))
     rate_drop = float(data.get(CONF_RATE_DROP))
 
-    main = GlucoseValueSensor(hass, name, low, high, rate_drop)
-    delta = GlucoseDeltaSensor(hass, f"{name} Delta")
-    rate  = GlucoseRateSensor(hass, f"{name} Velocidad")
+    _LOGGER.debug(
+        "Setting up sensors for entry '%s' (entry_id=%s): low=%.1f high=%.1f rate_drop=%.2f",
+        name, entry.entry_id, low, high, rate_drop,
+    )
 
-    # Vincular referencias para cómputo cruzado
+    main = GlucoseValueSensor(hass, entry, name, low, high, rate_drop)
+    delta = GlucoseDeltaSensor(hass, entry, f"{name} Delta")
+    rate = GlucoseRateSensor(hass, entry, f"{name} Rate")
     main.attach_derivatives(delta, rate)
 
     async_add_entities([main, delta, rate], True)
+    _LOGGER.info("Sensors added for '%s': value, delta, rate", name)
+
+
+def _device_info(entry: ConfigEntry, name: str) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=f"Glucose NG — {name}",
+        manufacturer="Juggluco / NightScout Gateway",
+        model="CGM Sensor Bridge",
+        sw_version="0.3.0",
+    )
+
 
 class BaseGlucoseSensor(SensorEntity):
     _attr_icon = "mdi:diabetes"
+    _attr_has_entity_name = True
+    _attr_should_poll = False
 
-    def __init__(self, hass: HomeAssistant, name: str):
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, name: str):
         self.hass = hass
+        self._entry = entry
         self._attr_name = name
         self._value = None
-        self._attrs = {}
+        self._attrs: dict = {}
+        self._available = True
 
     @property
     def native_value(self):
@@ -46,13 +68,31 @@ class BaseGlucoseSensor(SensorEntity):
     def extra_state_attributes(self):
         return self._attrs
 
+    @property
+    def available(self) -> bool:
+        return self._available
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return _device_info(self._entry, self._entry.data.get(CONF_NAME, DEFAULT_NAME))
+
+
 class GlucoseValueSensor(BaseGlucoseSensor):
     _attr_native_unit_of_measurement = "mg/dL"
-    _attr_state_class = "measurement"
-    _attr_unique_id = "glucose_ng_value"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_device_class = SensorDeviceClass.BLOOD_GLUCOSE_CONCENTRATION
 
-    def __init__(self, hass: HomeAssistant, name: str, low: float, high: float, rate_drop: float):
-        super().__init__(hass, name)
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        name: str,
+        low: float,
+        high: float,
+        rate_drop: float,
+    ):
+        super().__init__(hass, entry, name)
+        self._attr_unique_id = f"{entry.entry_id}_glucose_value"
         self._low = low
         self._high = high
         self._rate_drop = rate_drop
@@ -66,77 +106,99 @@ class GlucoseValueSensor(BaseGlucoseSensor):
         self._rate_sensor = rate_sensor
 
     async def async_added_to_hass(self):
-        self.async_on_remove(async_dispatcher_connect(
-            self.hass, SIGNAL_NEW_READING, self._handle_reading
-        ))
+        # Subscribe to the entry-specific signal so readings are routed correctly
+        # when multiple config entries (multiple devices/people) are active.
+        signal = f"{SIGNAL_NEW_READING}_{self._entry.entry_id}"
+        _LOGGER.debug("Subscribing to signal '%s'", signal)
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, signal, self._handle_reading)
+        )
 
     async def _handle_reading(self, reading: dict):
         new_val = reading.get("sgv")
         ts_ms = reading.get("epoch_ms")
         now_ts = time.time()
-        ts = (ts_ms/1000.0) if ts_ms else now_ts
+        ts = (ts_ms / 1000.0) if ts_ms else now_ts
 
-        # Derivadas
-        delta = None
-        rate = None
+        _LOGGER.debug(
+            "[%s] Reading: sgv=%.1f direction=%s",
+            self._entry.entry_id, new_val, reading.get("direction"),
+        )
+
+        delta: Optional[float] = None
+        rate: Optional[float] = None
         if self._last_value is not None and self._last_ts is not None:
             delta = float(new_val) - float(self._last_value)
             dt_min = max((ts - self._last_ts) / 60.0, 1e-6)
             rate = delta / dt_min
 
-        # Actualiza self
         self._value = new_val
         self._attrs = {
             "direction": reading.get("direction"),
             "timestamp_ms": ts_ms,
+            "last_updated_ts": now_ts,
         }
+        self._available = True
         self._last_value = new_val
         self._last_ts = ts
         self.async_write_ha_state()
 
-        # Actualiza derivados
         if self._delta_sensor is not None and delta is not None:
             self._delta_sensor.update_value(delta)
         if self._rate_sensor is not None and rate is not None:
             self._rate_sensor.update_value(rate)
 
-        # Alertas básicas: hipo / hiper / caída rápida
+        # Alerts
         try:
             if new_val is not None:
                 if float(new_val) < self._low:
-                    await self._notify("Hipoglucemia", f"Glucosa {new_val} mg/dL < {self._low}")
+                    await self._notify("Hypoglycemia", f"Glucose {new_val} mg/dL < {self._low}")
                 elif float(new_val) > self._high:
-                    await self._notify("Hiperglucemia", f"Glucosa {new_val} mg/dL > {self._high}")
+                    await self._notify("Hyperglycemia", f"Glucose {new_val} mg/dL > {self._high}")
             if rate is not None and rate <= -abs(self._rate_drop):
-                await self._notify("Caída rápida", f"Δ {rate:.1f} mg/dL/min")
-        except Exception as e:
-            _LOGGER.debug("Notification error: %s", e)
+                await self._notify("Rapid drop", f"Δ {rate:.1f} mg/dL/min")
+        except Exception as exc:
+            _LOGGER.debug("Alert error: %s", exc)
 
     async def _notify(self, title: str, message: str):
-        # Evento + notificación persistente (el usuario puede añadir también notify móvil por automatización)
-        self.hass.bus.async_fire("glucose_ng_alert", {"title": title, "message": message})
-        await self.hass.services.async_call(
-            "persistent_notification", "create",
-            {"title": f"[Glucose NG] {title}", "message": message},
-            blocking=False
+        _LOGGER.info("Alert [%s]: %s — %s", self._entry.data.get(CONF_NAME), title, message)
+        self.hass.bus.async_fire(
+            "glucose_ng_alert",
+            {"title": title, "message": message, "entry_id": self._entry.entry_id},
         )
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {"title": f"[Glucose NG] {title}", "message": message},
+            blocking=False,
+        )
+
 
 class GlucoseDeltaSensor(BaseGlucoseSensor):
     _attr_native_unit_of_measurement = "mg/dL"
-    _attr_state_class = "measurement"
-    _attr_unique_id = "glucose_ng_delta"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:delta"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, name: str):
+        super().__init__(hass, entry, name)
+        self._attr_unique_id = f"{entry.entry_id}_glucose_delta"
 
     def update_value(self, delta: float):
         self._value = round(delta, 1)
-        self._attrs = {}
+        self._available = True
         self.async_write_ha_state()
+
 
 class GlucoseRateSensor(BaseGlucoseSensor):
     _attr_native_unit_of_measurement = "mg/dL/min"
-    _attr_state_class = "measurement"
-    _attr_unique_id = "glucose_ng_rate"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:trending-up"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, name: str):
+        super().__init__(hass, entry, name)
+        self._attr_unique_id = f"{entry.entry_id}_glucose_rate"
 
     def update_value(self, rate: float):
         self._value = round(rate, 2)
-        self._attrs = {}
+        self._available = True
         self.async_write_ha_state()
