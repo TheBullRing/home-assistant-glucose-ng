@@ -9,10 +9,10 @@ from aiohttp import web
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers import entity_registry as er
 from homeassistant.components import recorder
 from homeassistant.components.recorder import history
 import homeassistant.util.dt as dt_util
-from homeassistant.util import slugify
 from datetime import timedelta
 from .const import DOMAIN, SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT, SIGNAL_NEW_DEVICESTATUS
 
@@ -260,10 +260,14 @@ class _BasePostEventView(HomeAssistantView):
             _LOGGER.warning("%s GET: authentication failed → 401", self.__class__.__name__)
             return web.Response(status=HTTPStatus.UNAUTHORIZED, text="unauthorized")
 
-        # Get the configured name for this entry to construct the entity_id
-        entry_data = self.hass.data.get(DOMAIN, {}).get("entries", {}).get(entry_id, {})
-        name = entry_data.get("name", "Glucosa")
-        entity_id = f"sensor.{slugify(name)}"
+        # Get the actual entity_id from the entity registry using the unique_id
+        ent_reg = er.async_get(self.hass)
+        unique_id = f"{entry_id}_glucose_value"
+        entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, unique_id)
+        
+        if not entity_id:
+            _LOGGER.warning("%s GET: could not find sensor in entity registry for entry_id=%s", self.__class__.__name__, entry_id)
+            return web.json_response([], status=HTTPStatus.OK)
         
         try:
             count = int(request.rel_url.query.get("count", 10))
@@ -420,6 +424,7 @@ class GlucoseNGStatusView(HomeAssistantView):
     """
     requires_auth = False
     url = "/api/v1/status"
+    extra_urls = ["/api/v1/status.json"]
     name = "api:glucose_ng:v1_status"
 
     async def get(self, request: web.Request):
@@ -450,6 +455,7 @@ class GlucoseNGVersionView(HomeAssistantView):
     """
     requires_auth = False
     url = "/api/v3/version"
+    extra_urls = ["/api/v3/version.json"]
     name = "api:glucose_ng:v3_version"
 
     async def get(self, request: web.Request):
