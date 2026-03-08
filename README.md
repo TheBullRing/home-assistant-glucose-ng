@@ -6,7 +6,7 @@
 
 Una **integración personalizada para Home Assistant** que recibe lecturas de glucosa desde **Juggluco** (o cualquier uploader compatible con Nightscout) directamente — **sin necesidad de un servidor Nightscout real**.
 
-El proyecto **emula las APIs Nightscout v1/v3** para que Juggluco envíe los datos directamente a Home Assistant, donde se crean sensores nativos.
+El proyecto **emula las APIs Nightscout v1/v3** para que el uploader envíe los datos directamente a Home Assistant, donde se crean sensores nativos.
 
 ---
 
@@ -55,7 +55,7 @@ Aunque **no tengas ningún enchufe inteligente**, Home Assistant sigue siendo in
 
 # 🆚 ¿Por qué esta integración y no LibreView?
 
-Hoy en día la opción más usada para meter un sensor de glucosa en HA es:
+Hoy en día la única opción para meter un sensor de glucosa en HA es:
 
 👉 https://github.com/PTST/LibreView-HomeAssistant
 
@@ -131,7 +131,7 @@ Estas apps envían las lecturas directamente a Home Assistant a través de esta 
 
 ## Funcionalidades
 
-- Emulación completa de Nightscout en los endpoints usados por Juggluco.
+- Emulación completa de Nightscout en los endpoints usados por los uploaders.
 - Multi-dispositivo/persona: cada entrada tiene su propio secreto y sensores independientes.
 - Tres sensores por dispositivo:
     - `sensor.<nombre>` — glucosa actual (mg/dL)
@@ -162,7 +162,7 @@ Estas apps envían las lecturas directamente a Home Assistant a través de esta 
 
 # ⚙️ Configuración
 
-Después de reiniciar Home Assistant, añade una entrada de integración por cada dispositivo Juggluco:
+Después de reiniciar Home Assistant, añade una entrada de integración por cada dispositivo uploader:
 
 1. Ve a **Ajustes → Dispositivos y Servicios → Añadir integración**.
 2. Busca **Glucose NG** y selecciónala.
@@ -170,7 +170,7 @@ Después de reiniciar Home Assistant, añade una entrada de integración por cad
 
 |Campo|Descripción|Valor por defecto|
 |---|---|---|
-|Shared Secret|El token API configurado en Juggluco. Debe ser único por dispositivo.|(obligatorio)|
+|Shared Secret|El token API configurado en el uploader. Debe ser único por dispositivo.|(obligatorio)|
 |Name|Nombre de la persona/dispositivo. Se usa para nombrar los sensores.|Glucosa|
 |Low threshold|Límite inferior para alerta de hipoglucemia (mg/dL).|70|
 |High threshold|Límite superior para hiperglucemia (mg/dL).|180|
@@ -226,7 +226,7 @@ Los sensores tienen `state_class: measurement`, por lo que Home Assistant regist
 
 Atributos adicionales del sensor principal:
 
-- `direction` — flecha/trend de Juggluco (Flat, SingleUp, etc.)
+- `direction` — flecha/trend del uploader (Flat, SingleUp, etc.)
 - `timestamp_ms` — marca de tiempo original del dispositivo
 
 ---
@@ -260,14 +260,14 @@ Para mostrar gráficas:
 
 1. Instala **apexcharts-card** desde HACS.
 2. Añade una tarjeta como esta: ( Cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses)
-3- En Home Assistant > Configuración > Paneles de Control  >  Añadir panel de control > "Nuevo Panel de control desde cero" 
- a. Título: Glucosa
- b. Icono: mdi:medication
- c. Añadir a la barra lateral selecciona "Sí"
-4- En la barra lateral aparece en el menu ahora la opción "Glucosa":
- a. Pincha y pincha en el icono del lapiz para editar el panel. 
- b. Selecciona los 3 puntos y pincha la opción "Editor de configuración en bruto"
- c. Borra lo que aparezca y copia y pega el YAML que se muestra a continuación, cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses.
+3. En Home Assistant > Configuración > Paneles de Control  >  Añadir panel de control > "Nuevo Panel de control desde cero"
+  - Título: Glucosa
+  - Icono: mdi:medication
+  - Añadir a la barra lateral selecciona "Sí"
+4. En la barra lateral aparece en el menu ahora la opción "Glucosa":
+  - Pincha y pincha en el icono del lapiz para editar el panel. 
+  - Selecciona los 3 puntos y pincha la opción "Editor de configuración en bruto"
+  - Borra lo que aparezca y copia y pega el YAML que se muestra a continuación, cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses.
 
 ```yaml
 views:
@@ -379,8 +379,8 @@ Problemas comunes:
 |Síntoma|Causa probable|Solución|
 |---|---|---|
 |401 en logs de Nginx, sin logs en HA|La integración no cargó|Reiniciar HA y revisar errores|
-|WARNING: token did not match|Secret en Juggluco ≠ secret en HA|Verificar que coinciden exactamente|
-|Sensor en unknown|Falta el campo sgv en la lectura|Revisar cuerpo enviado por Juggluco|
+|WARNING: token did not match|Secret en el uploader ≠ secret en HA|Verificar que coinciden exactamente|
+|Sensor en unknown|Falta el campo sgv en la lectura|Revisar cuerpo enviado por el uploader|
 
 ---
 
