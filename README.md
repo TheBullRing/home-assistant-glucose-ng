@@ -1,234 +1,369 @@
-# Home Assistant Glucose NG (NightScout Gateway)
+
+# 🩸 Home Assistant Glucose NG (NightScout Gateway)
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A **custom Home Assistant integration** that receives glucose readings from **Juggluco** (or any Nightscout-compatible uploader) directly — no Nightscout server required.
+Una **integración personalizada para Home Assistant** que recibe lecturas de glucosa desde **Juggluco** (o cualquier uploader compatible con Nightscout) directamente — **sin necesidad de un servidor Nightscout real**.
 
-It emulates the Nightscout v1/v3 HTTP API so that Juggluco posts data straight to Home Assistant, which exposes it as native sensors.
-
----
-
-## Features
-
-- **Drop-in Nightscout emulation** — implements the exact endpoints Juggluco calls:
-  - `GET /api/v1/status` and `GET /api/v3/version` — server compatibility handshake
-  - `GET /api/v2/authorization/request/<token>` — auth handshake
-  - `POST /api/v1/entries` and `POST /api/v3/entries` — Nightscout glucose entries
-  - `POST /api/v1/treatments` and `POST /api/v3/treatments` — Insulin, carbs, and notes
-  - `POST /api/v1/devicestatus` and `POST /api/v3/devicestatus` — Uploader battery and stats
-- **Multi-device support** — add one config entry per person/device, each with its own secret. Every entry gets its own isolated set of sensors and its own HA Device.
-- **Three sensors per device:**
-  - `sensor.<name>` — current glucose value in mg/dL
-  - `sensor.<name>_delta` — change since last reading (mg/dL)
-  - `sensor.<name>_rate` — rate of change (mg/dL/min)
-- **Flexible authentication** — accepts credentials via `api-secret` header (plain or SHA1), `Authorization: Bearer`, `X-Shared-Secret`, or `?token=` query param. Falls back to an IP-based session (needed because HA's auth middleware can strip the Authorization header when behind a reverse proxy).
-- **Alerts** — fires a `glucose_ng_alert` event and creates a persistent HA notification for hypo, hyper, and rapid-drop conditions.
-- **HACS-ready** — installs as a custom repository with zero YAML configuration.
+El proyecto **emula las APIs Nightscout v1/v3** para que Juggluco envíe los datos directamente a Home Assistant, donde se crean sensores nativos.
 
 ---
 
-## How It Works
 
-```
-Juggluco (Android)
-    │
-    │  GET /api/v2/authorization/request/<token>   ← auth handshake
-    │  POST /api/v3/entries  [JSON glucose data]   ← reading upload
-    ▼
-nginx (reverse proxy, HTTPS)
-    ▼
-Home Assistant  →  glucose_ng custom integration
-    │
-    ├── sensor.<name>          (mg/dL)
-    ├── sensor.<name>_delta    (mg/dL)
-    └── sensor.<name>_rate     (mg/dL/min)
-```
+## 🤓 Sobre este proyecto
+
+Este es un **proyecto personal y de hobby**. No soy desarrollador profesional, **no conozco Python**, y gran parte del desarrollo se ha hecho con ayuda de **Vive Coding** dentro de https://antigravity.google/.
+
+Aunque sea un proyecto amateur, está diseñado para ser **simple, útil y robusto** dentro de Home Assistant.
 
 ---
 
-## Installation
+# 🏠 ¿Qué es Home Assistant y por qué es ideal para gestionar sensores?
 
-### Via HACS (recommended)
+Para quien no conoce Home Assistant:
 
-1. Publish (or fork) this repository to GitHub as a **public** repo.
-2. In Home Assistant: **HACS → Integrations → ⋮ → Custom repositories**.
-3. Paste the GitHub URL and select category **Integration**.
-4. Install **Home Assistant Glucose NG** and **restart** Home Assistant.
+**Home Assistant (HA)** es un sistema de domótica abierto que permite integrar sensores, dispositivos, automatizaciones y servicios en un mismo sitio.
 
-### Manual
+Incluso si hoy no tienes domótica en casa, Home Assistant es una plataforma:
 
-1. Copy the `custom_components/glucose_ng/` folder into your HA `config/custom_components/` directory.
-2. Restart Home Assistant.
+- gratuita
+- segura
+- estable
+- extensible
+- con miles de integraciones
 
----
+Recomiendo visitar: **https://unlocoysutecnologia.com/**
 
-## Configuration
+Es una web perfecta para familiarizarse con Home Assistant desde cero.
 
-After restarting, add one integration entry per Juggluco device:
+### ¿Por qué usar Home Assistant para sensores de glucosa?
 
-1. Go to **Settings → Devices & Services → Add Integration**.
-2. Search for **Glucose NG** and click it.
-3. Fill in the form:
+Porque te permite crear **automatizaciones**, **avisos inteligentes**, **históricos**, **dashboards**, y combinar los valores del sensor con:
 
-| Field | Description | Default |
-|-------|-------------|---------|
-| **Shared Secret** | The API token you set in Juggluco. Must be unique per device. | _(required)_ |
-| **Name** | Label for this device/person (e.g. `Alice`). Used in sensor names. | `Glucosa` |
-| **Low threshold** | Hypo alert below this value (mg/dL). | `70` |
-| **High threshold** | Hyper alert above this value (mg/dL). | `180` |
-| **Rapid drop** | Alert when rate of change ≤ −N mg/dL/min. | `3.0` |
+- luces
+- alarmas
+- mensajes
+- llamadas
+- notificaciones
+- estados de presencia
+- horarios (escuela, trabajo, etc.)
 
-4. Repeat for each additional device/person.
-
-Each entry creates a **Device** named `Glucose NG — <Name>` in the HA UI containing three sensors.
+Aunque **no tengas ningún enchufe inteligente**, Home Assistant sigue siendo increíble para monitorizar sensores y enviar alertas.
 
 ---
 
-## Configuring Juggluco
+# 🆚 ¿Por qué esta integración y no LibreView?
 
-In the Juggluco app, configure the **Nightscout** uploader:
+Hoy en día la opción más usada para meter un sensor de glucosa en HA es:
 
-| Setting | Value |
-|---------|-------|
-| **URL** | `https://your-ha-host` (no path suffix) |
-| **API Secret** | The exact **Shared Secret** you set in HA |
-| **API version** | v3 (preferred) or v1 |
+👉 https://github.com/PTST/LibreView-HomeAssistant
 
-Juggluco will call:
-- `GET https://your-ha-host/api/v2/authorization/request/<token>` to verify the token.
-- `POST https://your-ha-host/api/v3/entries` with the glucose data.
-- `POST https://your-ha-host/api/v3/treatments` when you enter "Amounts" (insulin, carbs).
+Pero esa integración depende de **LibreView**, un servicio externo en la nube.
 
-> **Note for nginx users:** HA's auth middleware can strip the `Authorization` header before it reaches the integration. The integration handles this automatically using an IP-based session: after the GET auth succeeds, the source IP is trusted for 5 minutes, so the POST goes through without needing the header.
+Este proyecto evita esa dependencia mediante un enfoque diferente:
 
----
+### ✔️ Este proyecto simula un servidor NightScout directamente en Home Assistant
 
-## Sensors
+De esta forma, aplicaciones como:
 
-| Sensor | Unit | Description |
-|--------|------|-------------|
-| `sensor.<name>` | mg/dL | Latest glucose reading. `device_class: blood_glucose_concentration` |
-| `sensor.<name>_delta` | mg/dL | Difference from the previous reading |
-| `sensor.<name>_rate` | mg/dL/min | Rate of change per minute |
+- Juggluco
+- xDrip
+- Diabox
 
-All sensors have `state_class: measurement`, so HA automatically tracks history and statistics.
+pueden enviar los datos **directamente a HA**, de forma local, rápida y sin intermediarios.
 
-Extra attributes on the main sensor:
-- `direction` — Juggluco trend arrow (e.g. `Flat`, `FortyFiveUp`, `SingleUp`)
-- `timestamp_ms` — original epoch timestamp from the device
+⚠️ Al ser un **simulador**, no todas las funciones NightScout están implementadas.
+
+Pero sí las necesarias para tener sensores funcionales y estables en Home Assistant con posibilidad de automatizaciones.
 
 ---
 
-## Alerts
+# 🔔 Ejemplos reales de automatizaciones muy potentes
 
-The integration fires a `glucose_ng_alert` **HA event** and creates a **persistent notification** when:
+Gracias a que el sensor vive dentro de HA:
 
-| Condition | Trigger |
-|-----------|---------|
-| Hypoglycemia | `sgv < low_threshold` |
-| Hyperglycemia | `sgv > high_threshold` |
-| Rapid drop | rate ≤ −`rate_drop` mg/dL/min |
+1. **Si la glucosa baja de 70 mg/dL después de medianoche:** encender la luz de la habitación.
+2. **Si baja de 60 mg/dL:** activar la alarma de la casa.
+3. **Si baja de 50 mg/dL y la persona está sola:** realizar llamada automática vía Twilio a un contacto de emergencia.
+4. **Si es horario escolar y la glucosa baja de 75 mg/dL:** enviar mensaje por Telegram al tutor y a los padres. Si es fin de semana → solo a los padres.
 
-The event payload contains `title`, `message`, and `entry_id` (useful for routing alerts per person in automations).
-
-### Treatments and Device Status Events
-
-When Juggluco (or any uploader) sends Treatments (insulin/carbs) or DeviceStatus (battery levels), the integration accepts the data and fires standard Home Assistant events:
-
-| Event Type | Trigger | Payload includes |
-|------------|---------|-------------------|
-| `glucose_ng_new_treatment` | POST to `/api/v3/treatments` | `entry_id`, `payload` (JSON dict w/ insulin, carbs, eventType) |
-| `glucose_ng_new_devicestatus` | POST to `/api/v3/devicestatus` | `entry_id`, `payload` (JSON w/ uploader info, battery) |
-
-You can use these events in Automation Triggers (Trigger type: *Event*) to log data, update helpers, or send custom notifications.
-
-### Alert Automation Blueprint
-
-Import the blueprint from `blueprints/automation/home_assistant_glucose_ng/alerts.yaml` to quickly create mobile push notifications for any of the above conditions.
+Las combinaciones posibles son prácticamente infinitas.
 
 ---
 
-## Lovelace Dashboard (ApexCharts)
+# 📦 Requisitos para usar este proyecto
 
-Install **[apexcharts-card](https://github.com/RomRider/apexcharts-card)** via HACS, then add a card like this (replace `sensor.alice` with your sensor name):
+### 1. Tener un Home Assistant en casa
+
+Si tienes un PC viejo, puedes usarlo para ejecutar Home Assistant OS y un nginx.
+Si tienes conocimientos, puedes redirigir puertos y usar un proxy Nginx.
+Esta opción es la que he probado en este proyecto, y es **100% gratuita**.
+
+Si no tienes hardware ni conocimientos, se recomienda usar Home Assistant Cloud con un Home Assistant Green.
+
+Se recomienda el modelo **Home Assistant Green**, que **actualmente cuesta 139 €**.
+
+Para consultar el precio actualizado en cualquier momento, puedes visitar la página oficial:
+👉 https://www.home-assistant.io/green/
+
+### 2. Home Assistant debe ser accesible desde Internet
+
+Puede lograrse de dos formas:
+
+- **Home Assistant Cloud**, precio 7,50€ mes https://www.nabucasa.com/pricing/
+- Redirigiendo puertos en el router y usando un **proxy Nginx** (esta es la opción probada en este proyecto) y es **100% gratuita**.
+
+### 3. Tener un sensor de glucosa ( En mi caso Libre 2)
+
+Y utilizar aplicaciones compatibles con NightScout, como:
+
+- **Juggluco** (probado en este proyecto): https://github.com/j-kaltes/Juggluco
+- xDrip
+- Diabox
+
+Estas apps envían las lecturas directamente a Home Assistant a través de esta integración.
+
+---
+
+# ⭐ Características técnicas
+
+
+## Funcionalidades
+
+- Emulación completa de Nightscout en los endpoints usados por Juggluco.
+- Multi-dispositivo/persona: cada entrada tiene su propio secreto y sensores independientes.
+- Tres sensores por dispositivo:
+    - `sensor.<nombre>` — glucosa actual (mg/dL)
+    - `sensor.<nombre>_delta` — cambio desde la última lectura
+    - `sensor.<nombre>_rate` — velocidad de cambio (mg/dL/min)
+- Autenticación flexible.
+- Alertas integradas.
+- Compatible con HACS.
+
+---
+
+# 🔧 Instalación
+
+## Via HACS (recomendado)
+
+1. Accede a HACS
+2. Busca Home Assistant Glucose NG
+3. Haz click sobre los 3 puntos verticales, y selecciona la opción "Descarga" e instala la última versión.
+4. Si vas a configurar el Dashboard, instala también ApexCharts.
+5. Reinicia Home Assistant
+
+## Instalación manual
+
+1. Copia `custom_components/glucose_ng/` en `config/custom_components/`.
+2. Reinicia Home Assistant.
+
+---
+
+# ⚙️ Configuración
+
+Después de reiniciar Home Assistant, añade una entrada de integración por cada dispositivo Juggluco:
+
+1. Ve a **Ajustes → Dispositivos y Servicios → Añadir integración**.
+2. Busca **Glucose NG** y selecciónala.
+3. Completa el formulario:
+
+|Campo|Descripción|Valor por defecto|
+|---|---|---|
+|Shared Secret|El token API configurado en Juggluco. Debe ser único por dispositivo.|(obligatorio)|
+|Name|Nombre de la persona/dispositivo. Se usa para nombrar los sensores.|Glucosa|
+|Low threshold|Límite inferior para alerta de hipoglucemia (mg/dL).|70|
+|High threshold|Límite superior para hiperglucemia (mg/dL).|180|
+|Rapid drop|Alerta cuando la velocidad de descenso es ≤ N mg/dL/min.|3.0|
+
+Cada entrada crea un **Dispositivo** en la interfaz de Home Assistant llamado `Glucose NG — <Name>` que contiene tres sensores.
+
+---
+
+# 📱 Configuración del Uploader
+
+En la app que utilices, xDrip, Diabox o Juggluco, configura el uploader **Nightscout**:
+
+|Ajuste|Valor|
+|---|---|
+|URL|https://tu-servidor-ha (sin rutas adicionales)|
+|API Secret|El mismo Shared Secret que configuraste en Home Assistant|
+|API version|v3
+
+El uploader realizará estas llamadas:
+
+- `GET https://tu-ha/api/v2/authorization/request/<token>` → Verificación del token.
+- `POST https://tu-ha/api/v3/entries` → Envío de lecturas.
+- `POST https://tu-ha/api/v3/treatments` → Cuando se introducen tratamientos (insulina, carbohidratos).
+
+**Nota para usuarios de Nginx:** Home Assistant puede eliminar el header `Authorization` antes de enviarlo a la integración. Glucose NG soluciona esto usando una sesión basada en IP durante 5 minutos tras la autorización inicial.
 
 ```yaml
-type: custom:apexcharts-card
-header:
-  show: true
-  title: Glucose (24h)
-graph_span: 24h
-now:
-  show: true
-yaxis:
-  - min: 40
-    max: 300
-    decimals: 0
-    apex_config:
-      annotations:
+        location / {
+            proxy_pass http://internalha:8123/;
+            client_max_body_size 10M;
+            client_body_buffer_size 10M;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+```
+---
+
+# 📊 Sensores disponibles
+
+|Sensor|Unidad|Descripción|
+|---|---|---|
+|sensor.<nombre>|mg/dL|Última lectura de glucosa. (device_class: blood_glucose_concentration)|
+|sensor.<nombre>_delta|mg/dL|Diferencia respecto a la lectura anterior.|
+|sensor.<nombre>_rate|mg/dL/min|Velocidad de cambio por minuto.|
+
+Los sensores tienen `state_class: measurement`, por lo que Home Assistant registra el historial automáticamente.
+
+Atributos adicionales del sensor principal:
+
+- `direction` — flecha/trend de Juggluco (Flat, SingleUp, etc.)
+- `timestamp_ms` — marca de tiempo original del dispositivo
+
+---
+
+# 🚨 Alertas
+
+La integración dispara un evento `glucose_ng_alert` y crea una **notificación persistente** en estos casos:
+
+|Condición|Disparo|
+|---|---|
+|Hipoglucemia|sgv < low_threshold|
+|Hiperglucemia|sgv > high_threshold|
+|Caída rápida|rate <= -rapid_drop|
+
+El evento incluye `title`, `message` y `entry_id` (útil para automatizaciones por persona).
+
+## Eventos de Treatments y Device Status
+
+|Evento|Trigger|Payload|
+|---|---|---|
+|glucose_ng_new_treatment|POST a /api/v3/treatments|entry_id, datos de insulina/carbs|
+|glucose_ng_new_devicestatus|POST a /api/v3/devicestatus|nivel de batería, info del uploader|
+
+Puedes usar estos eventos como **disparadores de automatización** en Home Assistant.
+
+---
+
+# 📈 Dashboard Lovelace (ApexCharts)
+
+Para mostrar gráficas:
+
+1. Instala **apexcharts-card** desde HACS.
+2. Añade una tarjeta como esta: ( Cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses)
+3- En Home Assistant > Configuración > Paneles de Control  >  Añadir panel de control > "Nuevo Panel de control desde cero" 
+ a. Título: Glucosa
+ b. Icono: mdi:medication
+ c. Añadir a la barra lateral selecciona "Sí"
+4- En la barra lateral aparece en el menu ahora la opción "Glucosa":
+ a. Pincha y pincha en el icono del lapiz para editar el panel. 
+ b. Selecciona los 3 puntos y pincha la opción "Editor de configuración en bruto"
+ c. Borra lo que aparezca y copia y pega el YAML que se muestra a continuación, cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses.
+
+```yaml
+views:
+  - title: Glucosa
+    panel: true
+    cards:
+      - type: custom:apexcharts-card
+        graph_span: 24h
+        header:
+          show: true
+          title: Glucosa - Últimas 24 h (mg/dL)
         yaxis:
-          - y: 70
-            y2: 180
-            borderColor: '#00C853'
-            fillColor: 'rgba(0,200,83,0.10)'
-            label:
-              text: 'Target range (70–180)'
-series:
-  - entity: sensor.alice
-    name: Glucose
-    type: line
-    stroke_width: 3
-    color: '#2196F3'
-  - entity: sensor.alice_rate
-    name: Rate (mg/dL/min)
-    yaxis_id: second
-    type: area
-    color: '#FF6D00'
-    opacity: 0.3
-apex_config:
-  yaxis:
-    - seriesName: Glucose
-    - opposite: true
-      decimalsInFloat: 1
-      title:
-        text: 'mg/dL/min'
+          - decimals: 0
+        apex_config:
+          stroke:
+            curve: smooth
+            width: 3
+          markers:
+            size: 0
+          legend:
+            show: false
+          yaxis:
+            - forceNiceScale: true
+          annotations:
+            yaxis:
+              - 'y': 70
+                borderColor: '#2e7d32'
+              - 'y': 180
+                borderColor: '#2e7d32'
+              - 'y': 70
+                y2: 180
+                fillColor: rgba(46,125,50,0.12)
+                borderColor: transparent
+        series:
+          - entity: sensor.glucose_ng_glucosa_glucosa
+            name: Glucosa < 70
+            type: line
+            color: '#d32f2f'
+            group_by:
+              duration: 5min
+              func: avg
+            transform: 'return x == null ? null : (Number(x) < 70 ? Number(x) : null);'
+          - entity: sensor.glucose_ng_glucosa_glucosa
+            name: Glucosa 70–180
+            type: line
+            color: '#2e7d32'
+            group_by:
+              duration: 5min
+              func: avg
+            transform: >-
+              return x == null ? null : (Number(x) >= 70 && Number(x) <= 180 ?
+              Number(x) : null);
+          - entity: sensor.glucose_ng_javi_javi
+            name: Glucosa > 180
+            type: line
+            color: '#d32f2f'
+            group_by:
+              duration: 5min
+              func: avg
+            transform: 'return x == null ? null : (Number(x) > 180 ? Number(x) : null);'
+
 ```
 
 ---
 
-## Quick Test (curl)
-
-Verify the integration is working without Juggluco:
+# 🧪 Prueba rápida (curl)
 
 ```bash
-SECRET="your_shared_secret"
+SECRET="tu_shared_secret"
 SECRET_SHA1=$(echo -n "$SECRET" | sha1sum | cut -d' ' -f1)
 
-# Test auth endpoint
-curl -s "http://YOUR_HA_IP:8123/api/v2/authorization/request/$SECRET"
+# Probar autenticación
+curl -s "http://TU_HA_IP:8123/api/v2/authorization/request/$SECRET"
 
-# Post a test reading (SHA1 of secret in api-secret header)
-curl -X POST "http://YOUR_HA_IP:8123/api/v3/entries" \
+# Enviar lectura
+curl -X POST "http://TU_HA_IP:8123/api/v3/entries" \
   -H "Content-Type: application/json" \
   -H "api-secret: $SECRET_SHA1" \
   -d '[{"sgv": 120, "date": '"$(date +%s%3N)"', "direction": "Flat", "type": "sgv"}]'
 
-# Post a test treatment (Insulin)
-curl -X POST "http://YOUR_HA_IP:8123/api/v3/treatments" \
+# Enviar tratamiento (insulina)
+curl -X POST "http://TU_HA_IP:8123/api/v3/treatments" \
   -H "Content-Type: application/json" \
   -H "api-secret: $SECRET_SHA1" \
   -d '[{"eventType": "Correction Bolus", "insulin": 2.5, "created_at": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}]'
 ```
 
-Expected response `{"ok": true, "count": 1}`.
-Then check **Developer Tools → States** for `sensor.<your_name>`.
+Respuesta esperada: `{"ok": true, "count": 1}`.
+
+Luego revisa **Herramientas de desarrollador → Estados** para ver `sensor.<nombre>`.
 
 ---
 
-## Troubleshooting
+# 🩻 Troubleshooting
 
-Enable debug logging in `configuration.yaml`:
+Activa logs detallados añadiendo esto a `configuration.yaml`:
 
 ```yaml
 logger:
@@ -237,21 +372,18 @@ logger:
     custom_components.glucose_ng: debug
 ```
 
-Then restart HA and check **Settings → System → Logs**. The integration logs:
-- Every auth decision with the exact header values received.
-- A `WARNING` with full headers when a request is rejected.
-- Each reading dispatched to sensors.
+Reinicia HA y revisa **Ajustes → Sistema → Logs**.
 
-**Common issues:**
+Problemas comunes:
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `401` in nginx log, no HA log entries | Integration not loaded / HA not restarted | Restart HA, check for load errors |
-| `WARNING: token did not match any registered entry` | Juggluco secret ≠ HA shared secret | Match the values exactly |
-| Sensor stays `unknown` | Reading arrives but no `sgv` field | Check Juggluco body format in debug log |
+|Síntoma|Causa probable|Solución|
+|---|---|---|
+|401 en logs de Nginx, sin logs en HA|La integración no cargó|Reiniciar HA y revisar errores|
+|WARNING: token did not match|Secret en Juggluco ≠ secret en HA|Verificar que coinciden exactamente|
+|Sensor en unknown|Falta el campo sgv en la lectura|Revisar cuerpo enviado por Juggluco|
 
 ---
 
-## License
+# 📄 Licencia
 
 MIT
