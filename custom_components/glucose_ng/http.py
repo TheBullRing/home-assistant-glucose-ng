@@ -309,14 +309,20 @@ class _BasePostEventView(HomeAssistantView):
             epoch_ms = s.attributes.get("epoch_ms", int(s.last_updated.timestamp() * 1000))
             direction = s.attributes.get("direction", "NONE")
             
-            ns_entries.append({
+            entry_dict = {
                 "sgv": sgv,
                 "date": epoch_ms,
                 "dateString": s.last_updated.isoformat(),
                 "direction": direction,
-                "type": "sgv",
+                "type": s.attributes.get("type", "sgv"),
                 "sysTime": s.last_updated.isoformat()
-            })
+            }
+            
+            for key in ("device", "noise", "rssi", "filtered", "unfiltered"):
+                if key in s.attributes:
+                    entry_dict[key] = s.attributes[key]
+                    
+            ns_entries.append(entry_dict)
             
         # Nightscout expects newest first
         ns_entries.reverse()

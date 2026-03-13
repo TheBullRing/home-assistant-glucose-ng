@@ -133,11 +133,19 @@ class GlucoseValueSensor(BaseGlucoseSensor):
             rate = delta / dt_min
 
         self._value = new_val
-        self._attrs = {
+        
+        attrs = {
             "direction": reading.get("direction"),
             "timestamp_ms": ts_ms,
             "last_updated_ts": now_ts,
         }
+        
+        raw_data = reading.get("raw", {})
+        for key in ("device", "noise", "rssi", "type", "filtered", "unfiltered"):
+            if key in raw_data:
+                attrs[key] = raw_data[key]
+                
+        self._attrs = attrs
         self._available = True
         self._last_value = new_val
         self._last_ts = ts
