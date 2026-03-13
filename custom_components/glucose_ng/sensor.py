@@ -174,12 +174,6 @@ class GlucoseValueSensor(BaseGlucoseSensor):
             "glucose_ng_alert",
             {"title": title, "message": message, "entry_id": self._entry.entry_id},
         )
-        await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {"title": f"[Glucose NG] {title}", "message": message},
-            blocking=False,
-        )
 
 
 class GlucoseDeltaSensor(BaseGlucoseSensor):
