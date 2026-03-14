@@ -207,7 +207,10 @@ class _BasePostEventView(HomeAssistantView):
 
         count_ok = 0
         signal = f"{self._signal_name}_{entry_id}"
-        
+
+        if self._signal_name == SIGNAL_NEW_READING:
+            items.sort(key=lambda x: x.get("date", 0))
+
         for item in items:
             # Special parsing only if it's the entries (glucose readings) endpoint,
             # otherwise just dispatch the raw JSON dictionary to the event bus.

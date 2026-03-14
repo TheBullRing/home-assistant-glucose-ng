@@ -114,7 +114,7 @@ class GlucoseValueSensor(BaseGlucoseSensor):
             async_dispatcher_connect(self.hass, signal, self._handle_reading)
         )
 
-    async def _handle_reading(self, reading: dict):
+    def _handle_reading(self, reading: dict):
         new_val = reading.get("sgv")
         ts_ms = reading.get("epoch_ms")
         now_ts = time.time()
@@ -156,7 +156,10 @@ class GlucoseValueSensor(BaseGlucoseSensor):
         if self._rate_sensor is not None and rate is not None:
             self._rate_sensor.update_value(rate)
 
-        # Alerts
+        # Alerts in background to not block the dispatcher (and UI updates)
+        self.hass.async_create_task(self._async_check_alerts(new_val, rate))
+
+    async def _async_check_alerts(self, new_val: Optional[float], rate: Optional[float]):
         try:
             if new_val is not None:
                 if float(new_val) < self._low:
