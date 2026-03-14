@@ -114,50 +114,56 @@ class GlucoseValueSensor(BaseGlucoseSensor):
             async_dispatcher_connect(self.hass, signal, self._handle_reading)
         )
 
-    def _handle_reading(self, reading: dict):
-        new_val = reading.get("sgv")
-        ts_ms = reading.get("epoch_ms")
-        now_ts = time.time()
-        ts = (ts_ms / 1000.0) if ts_ms else now_ts
+    async def _handle_reading(self, reading: dict):
+        try:
+            new_val = reading.get("sgv")
+            ts_ms = reading.get("epoch_ms")
+            now_ts = time.time()
+            ts = (ts_ms / 1000.0) if ts_ms else now_ts
 
-        _LOGGER.debug(
-            "[%s] Reading: sgv=%.1f direction=%s",
-            self._entry.entry_id, new_val, reading.get("direction"),
-        )
+            _LOGGER.debug(
+                "[%s] Handling reading: sgv=%.1f direction=%s",
+                self._entry.entry_id, new_val, reading.get("direction"),
+            )
 
-        delta: Optional[float] = None
-        rate: Optional[float] = None
-        if self._last_value is not None and self._last_ts is not None:
-            delta = float(new_val) - float(self._last_value)
-            dt_min = max((ts - self._last_ts) / 60.0, 1e-6)
-            rate = delta / dt_min
+            delta: Optional[float] = None
+            rate: Optional[float] = None
+            if self._last_value is not None and self._last_ts is not None:
+                delta = float(new_val) - float(self._last_value)
+                dt_min = max((ts - self._last_ts) / 60.0, 1e-6)
+                rate = delta / dt_min
 
-        self._value = new_val
-        
-        attrs = {
-            "direction": reading.get("direction"),
-            "timestamp_ms": ts_ms,
-            "last_updated_ts": now_ts,
-        }
-        
-        raw_data = reading.get("raw", {})
-        for key in ("device", "noise", "rssi", "type", "filtered", "unfiltered"):
-            if key in raw_data:
-                attrs[key] = raw_data[key]
-                
-        self._attrs = attrs
-        self._available = True
-        self._last_value = new_val
-        self._last_ts = ts
-        self.async_write_ha_state()
+            self._value = new_val
+            
+            attrs = {
+                "direction": reading.get("direction"),
+                "timestamp_ms": ts_ms,
+                "last_updated_ts": now_ts,
+            }
+            
+            raw_data = reading.get("raw", {})
+            for key in ("device", "noise", "rssi", "type", "filtered", "unfiltered"):
+                if key in raw_data:
+                    attrs[key] = raw_data[key]
+                    
+            self._attrs = attrs
+            self._available = True
+            self._last_value = new_val
+            self._last_ts = ts
+            
+            _LOGGER.debug("[%s] Writing state: value=%s delta=%s", self._entry.entry_id, self._value, delta)
+            self.async_write_ha_state()
 
-        if self._delta_sensor is not None and delta is not None:
-            self._delta_sensor.update_value(delta)
-        if self._rate_sensor is not None and rate is not None:
-            self._rate_sensor.update_value(rate)
+            if self._delta_sensor is not None and delta is not None:
+                self._delta_sensor.update_value(delta)
+            if self._rate_sensor is not None and rate is not None:
+                self._rate_sensor.update_value(rate)
 
-        # Alerts in background to not block the dispatcher (and UI updates)
-        self.hass.async_create_task(self._async_check_alerts(new_val, rate))
+            # Alerts in background to not block the dispatcher (and UI updates)
+            if self.hass:
+                self.hass.async_create_task(self._async_check_alerts(new_val, rate))
+        except Exception as exc:
+            _LOGGER.exception("[%s] Error in _handle_reading: %s", self._entry.entry_id, exc)
 
     async def _async_check_alerts(self, new_val: Optional[float], rate: Optional[float]):
         try:

@@ -209,7 +209,12 @@ class _BasePostEventView(HomeAssistantView):
         signal = f"{self._signal_name}_{entry_id}"
 
         if self._signal_name == SIGNAL_NEW_READING:
-            items.sort(key=lambda x: x.get("date", 0))
+            try:
+                # Ensure we sort by integer timestamp, defaulting to 0 if missing/invalid
+                items.sort(key=lambda x: int(x.get("date") or 0))
+                _LOGGER.debug("%s: Sorted %d entries chronologically", self.__class__.__name__, len(items))
+            except Exception as exc:
+                _LOGGER.error("%s: Sorting failed: %s", self.__class__.__name__, exc)
 
         for item in items:
             # Special parsing only if it's the entries (glucose readings) endpoint,
