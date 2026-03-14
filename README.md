@@ -231,6 +231,20 @@ Atributos adicionales del sensor principal:
 
 ---
 
+# 📅 Entidades de Evento (Tratamientos)
+
+A partir de las versiones recientes, la integración crea entidades de tipo `event` (Ej: `event.<nombre>_treatment`) específicas para los tratamientos que introduzcas en la aplicación (Insulina, Carbohidratos, Cambios de sensor, etc.).
+
+|Entidad|Descripción|Payload|
+|---|---|---|
+|event.<nombre>_treatment|Registra cada nuevo tratamiento.|Atributos del evento (eventType, insulin, carbs, notes, etc.)|
+
+**Ventajas de la entidad Event:**
+1. Se integra de forma nativa con el **Logbook** (Libro de registro) de Home Assistant, permitiéndote ver una línea temporal visual de tus inyecciones y comidas.
+2. Es muy sencillo usarla como disparador (Trigger) en automatizaciones escogiendo el estado de la entidad evento.
+
+---
+
 # 🚨 Alertas
 
 La integración dispara un evento `glucose_ng_alert` y crea una **notificación persistente** en estos casos:
@@ -243,14 +257,16 @@ La integración dispara un evento `glucose_ng_alert` y crea una **notificación 
 
 El evento incluye `title`, `message` y `entry_id` (útil para automatizaciones por persona).
 
-## Eventos de Treatments y Device Status
+## Eventos de Bus del Sistema (Avanzado)
 
-|Evento|Trigger|Payload|
+Además de las entidades de sensor y de evento mostradas arriba, la integración sigue disparando eventos puros en el Bus de Home Assistant:
+
+|Evento del Bus|Trigger|Payload|
 |---|---|---|
 |glucose_ng_new_treatment|POST a /api/v3/treatments|entry_id, datos de insulina/carbs|
 |glucose_ng_new_devicestatus|POST a /api/v3/devicestatus|nivel de batería, info del uploader|
 
-Puedes usar estos eventos como **disparadores de automatización** en Home Assistant.
+Puedes suscribirte a estos eventos como **disparadores de automatización** personalizados si prefieres no usar la entidad `event.<nombre>_treatment`.
 
 ---
 

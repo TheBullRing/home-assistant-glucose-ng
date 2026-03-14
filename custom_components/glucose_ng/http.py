@@ -247,11 +247,12 @@ class _BasePostEventView(HomeAssistantView):
         """
         Handle GET requests from Nightscout clients/followers.
         For entries, we query the Home Assistant recorder database to return historical states.
+        For treatments, we query the Home Assistant recorder database to return historical event data.
         For others, we return an empty array `[]` so the client doesn't crash. 
         """
         _LOGGER.debug("%s GET received. URL=%s", self.__class__.__name__, request.url)
         
-        if self._signal_name != SIGNAL_NEW_READING:
+        if self._signal_name not in (SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT):
             return web.json_response([], status=HTTPStatus.OK)
             
         token_map = self._get_token_map()
@@ -260,13 +261,19 @@ class _BasePostEventView(HomeAssistantView):
             _LOGGER.warning("%s GET: authentication failed → 401", self.__class__.__name__)
             return web.Response(status=HTTPStatus.UNAUTHORIZED, text="unauthorized")
 
-        # Get the actual entity_id from the entity registry using the unique_id
         ent_reg = er.async_get(self.hass)
-        unique_id = f"{entry_id}_glucose_value"
-        entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, unique_id)
+
+        if self._signal_name == SIGNAL_NEW_READING:
+            unique_id = f"{entry_id}_glucose_value"
+            entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, unique_id)
+        elif self._signal_name == SIGNAL_NEW_TREATMENT:
+            unique_id = f"{entry_id}_glucose_treatment"
+            entity_id = ent_reg.async_get_entity_id("event", DOMAIN, unique_id)
+        else:
+            return web.json_response([], status=HTTPStatus.OK)
         
         if not entity_id:
-            _LOGGER.warning("%s GET: could not find sensor in entity registry for entry_id=%s", self.__class__.__name__, entry_id)
+            _LOGGER.warning("%s GET: could not find entity in registry for entry_id=%s", self.__class__.__name__, entry_id)
             return web.json_response([], status=HTTPStatus.OK)
         
         try:
@@ -274,12 +281,10 @@ class _BasePostEventView(HomeAssistantView):
         except ValueError:
             count = 10
             
-        # We query the last 24 hours just in case, but limit to `count` items
         start_time = dt_util.utcnow() - timedelta(hours=24)
         
         _LOGGER.debug("%s: Querying HA history for %s since %s", self.__class__.__name__, entity_id, start_time)
         
-        # Run DB query in recorder's executor to avoid HA warnings
         states_dict = await recorder.get_instance(self.hass).async_add_executor_job(
             history.get_significant_states,
             self.hass,
@@ -300,29 +305,54 @@ class _BasePostEventView(HomeAssistantView):
         for s in states:
             if s.state in (None, "unknown", "unavailable"):
                 continue
-                
-            try:
-                sgv = float(s.state)
-            except ValueError:
-                continue
-                
-            epoch_ms = s.attributes.get("epoch_ms", int(s.last_updated.timestamp() * 1000))
-            direction = s.attributes.get("direction", "NONE")
-            
-            entry_dict = {
-                "sgv": sgv,
-                "date": epoch_ms,
-                "dateString": s.last_updated.isoformat(),
-                "direction": direction,
-                "type": s.attributes.get("type", "sgv"),
-                "sysTime": s.last_updated.isoformat()
-            }
-            
-            for key in ("device", "noise", "rssi", "filtered", "unfiltered"):
-                if key in s.attributes:
-                    entry_dict[key] = s.attributes[key]
+
+            if self._signal_name == SIGNAL_NEW_READING:
+                try:
+                    sgv = float(s.state)
+                except ValueError:
+                    continue
                     
-            ns_entries.append(entry_dict)
+                epoch_ms = s.attributes.get("epoch_ms", int(s.last_updated.timestamp() * 1000))
+                direction = s.attributes.get("direction", "NONE")
+                
+                entry_dict = {
+                    "sgv": sgv,
+                    "date": epoch_ms,
+                    "dateString": s.last_updated.isoformat(),
+                    "direction": direction,
+                    "type": s.attributes.get("type", "sgv"),
+                    "sysTime": s.last_updated.isoformat()
+                }
+                
+                for key in ("device", "noise", "rssi", "filtered", "unfiltered"):
+                    if key in s.attributes:
+                        entry_dict[key] = s.attributes[key]
+                        
+                ns_entries.append(entry_dict)
+
+            elif self._signal_name == SIGNAL_NEW_TREATMENT:
+                # Treatments are stored as EventEntities inside attributes["event"] (sometimes with an ID or directly)
+                event_type_str = s.attributes.get("event_type", "unknown")
+                # Because the event platform might stash payload in attributes directly or under `event_type` 
+                # (For generic EventEntities, it puts them directly as extra_state_attributes or they come from the trigger event)
+                # But since our GlucoseTreatmentEvent triggers `self._trigger_event("treatment", treatment)`
+                # The payload goes to `s.attributes.get("eventType")` natively because we passed raw dict keys.
+                # Actually during EventEntity update if we just pass a dict, HA sets the attributes. Let's extract.
+                
+                if "eventType" not in s.attributes:
+                    continue # Not a valid treatment event payload
+                
+                treatment_dict = {
+                    "eventType": s.attributes.get("eventType"),
+                    "created_at": s.attributes.get("created_at", s.last_updated.isoformat())
+                }
+
+                # Copy other standard treatment fields from attributes if they exist
+                for key in ("insulin", "carbs", "notes", "duration", "percent", "profile", "reason", "absolute", "rate"):
+                    if key in s.attributes:
+                        treatment_dict[key] = s.attributes[key]
+                        
+                ns_entries.append(treatment_dict)
             
         # Nightscout expects newest first
         ns_entries.reverse()

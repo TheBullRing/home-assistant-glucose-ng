@@ -13,7 +13,7 @@ from .const import (
 from .http import register_http_views, unregister_http_views
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.EVENT]
 
 # token_map key inside hass.data[DOMAIN]
 _TOKEN_MAP = "token_map"
