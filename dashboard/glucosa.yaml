@@ -8,6 +8,13 @@ views:
           - type: grid
             columns: 2
             square: false
+            card_mod:
+              style: |
+                @media (max-width: 600px) {
+                  #root {
+                    grid-template-columns: 1fr !important;
+                  }
+                }
             cards:
               - type: custom:button-card
                 entity: sensor.glucose_ng_javi_javi
@@ -20,7 +27,7 @@ views:
                     - box-shadow: none
                     - background: white
                   state:
-                    - font-size: 90px
+                    - font-size: clamp(60px, 20vw, 90px)
                     - font-weight: 800
                     - line-height: 1
                     - color: |
@@ -62,7 +69,7 @@ views:
                     - background: white
                   custom_fields:
                     arrow:
-                      - font-size: 86px
+                      - font-size: clamp(50px, 18vw, 86px)
                       - font-weight: 900
                       - line-height: 1
                       - color: |
