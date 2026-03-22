@@ -1,0 +1,25 @@
+alias: Glucosa Baja
+description: Aviso cuando la glucosa baja de 80 y cuando vuelve a subir
+triggers:
+  - entity_id: sensor.glucose_ng_javi_javi
+    below: 80
+    for:
+      minutes: 3
+    trigger: numeric_state
+conditions: []
+actions:
+  - data:
+      message: >-
+        ⚠️ *Glucosa baja*: {{ states('sensor.glucose_ng_javi_javi') }} mg/dL.
+        Revisa la situación.
+    action: telegram_bot.send_message
+  - wait_for_trigger:
+      - platform: numeric_state
+        entity_id: sensor.glucose_ng_javi_javi
+        above: 80
+        for:
+          minutes: 3
+  - data:
+      message: "✅ *Glucosa normalizada*: {{ states('sensor.glucose_ng_javi_javi') }} mg/dL. Ya está de nuevo en 80."
+    action: telegram_bot.send_message
+mode: single

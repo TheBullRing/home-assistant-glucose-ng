@@ -1,0 +1,29 @@
+alias: Glucosa - Alerta y recuperación por falta de datos
+description: >-
+  Avisa si el sensor de glucosa deja de enviar datos y también cuando se
+  recupera
+triggers:
+  - platform: template
+    value_template: >
+      {{ (now() - states.sensor.glucose_ng_javi_javi.last_changed).total_seconds() > 900 }}
+actions:
+  - repeat:
+      while:
+        - condition: template
+          value_template: >
+            {{ (now() - states.sensor.glucose_ng_javi_javi.last_changed).total_seconds() > 900 }}
+      sequence:
+        - data:
+            message: >-
+              ⚠️ *Alerta*: el sensor de glucosa NO envía datos desde hace más
+              de 15 minutos.
+          action: telegram_bot.send_message
+        - wait_for_trigger:
+            - platform: state
+              entity_id: sensor.glucose_ng_javi_javi
+          timeout: "00:15:00"
+          continue_on_timeout: true
+  - data:
+      message: "✅ *Recuperado*: el sensor vuelve a enviar datos correctamente."
+    action: telegram_bot.send_message
+mode: restart

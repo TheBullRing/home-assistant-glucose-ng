@@ -1,0 +1,23 @@
+alias: Glucosa Alta
+description: Aviso cuando la glucosa supera 180 y cuando baja de nuevo
+triggers:
+  - entity_id: sensor.glucose_ng_javi_javi
+    above: 180
+    for:
+      minutes: 5
+    trigger: numeric_state
+conditions: []
+actions:
+  - data:
+      message: "⚠️ *Glucosa alta*: {{ states('sensor.glucose_ng_javi_javi') }} mg/dL. Revisa la situación."
+    action: telegram_bot.send_message
+  - wait_for_trigger:
+      - platform: numeric_state
+        entity_id: sensor.glucose_ng_javi_javi
+        below: 180
+        for:
+          minutes: 5
+  - data:
+      message: "✅ *Glucosa normalizada*: {{ states('sensor.glucose_ng_javi_javi') }} mg/dL. Ya está por debajo de 180."
+    action: telegram_bot.send_message
+mode: single

@@ -1,0 +1,27 @@
+alias: Glucosa - Cambio Rápido
+description: Aviso cuando la glucosa sube o baja muy rápido (+/- 2 mg/dL/min)
+triggers:
+  - id: "rise"
+    platform: numeric_state
+    entity_id: sensor.glucose_ng_javi_javi_rate
+    above: 2.0
+    for:
+      minutes: 2
+  - id: "fall"
+    platform: numeric_state
+    entity_id: sensor.glucose_ng_javi_javi_rate
+    below: -2.0
+    for:
+      minutes: 2
+conditions: []
+actions:
+  - action: telegram_bot.send_message
+    data:
+      message: >-
+        {% if trigger.id == "rise" %}
+          🚀 *Subida rápida*: +{{ states('sensor.glucose_ng_javi_javi_rate') }} mg/dL/min.
+        {% else %}
+          📉 *Bajada rápida*: {{ states('sensor.glucose_ng_javi_javi_rate') }} mg/dL/min.
+        {% endif %}
+        Glucosa actual: {{ states('sensor.glucose_ng_javi_javi') }} mg/dL.
+mode: single
