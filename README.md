@@ -4,9 +4,29 @@
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Una **integración personalizada para Home Assistant** que recibe lecturas de glucosa desde **Juggluco** (o cualquier uploader compatible con Nightscout) directamente — **sin necesidad de un servidor Nightscout real**.
+Una **integración personalizada para Home Assistant** que recibe lecturas de glucosa desde **Juggluco, xDrip o Diabox** (o cualquier uploader compatible con Nightscout) directamente sin intermediarios.
 
-El proyecto **emula las APIs Nightscout v1/v3** para que el uploader envíe los datos directamente a Home Assistant, donde se crean sensores nativos.
+Esto crea sensores nativos en Home Assistant para cada dispositivo.
+
+Ejemplo de sensores y eventos creados:
+
+- `sensor.glucose_ng_glucosa_glucosa`
+- `sensor.glucose_ng_glucosa_delta`
+- `sensor.glucose_ng_glucosa_rate`
+- `event.glucose_ng_glucosa_treatment`  
+
+Esto permite crear automatizaciones, alertas y dashboards personalizados en Home Assistant para gestionar la diabetes.
+
+El proyecto **emula las APIs Nightscout v3** para que el uploader envíe los datos directamente a Home Assistant, donde se crean sensores nativos.
+
+El consumo de datos mobiles dependera del uso, si solo se usa uploader que envia lecturas cada minuto:
+
+🔹 Consumo por hora ≈ 13,5 KB/hora
+🔹 Consumo por día ≈ 324 KB/día ≈ 0,32 MB/día
+🔹 Consumo por mes (30 días) ≈ 9,7 MB/mes
+
+Si además se envian tratamientos, el consumo aumentara minimamente.
+Por otro lado, si se usa en modo follower, el consumo aumentara en funcion de la frecuencia de actualizacion de los sensores.
 
 ---
 
@@ -15,55 +35,23 @@ El proyecto **emula las APIs Nightscout v1/v3** para que el uploader envíe los 
 
 Este es un **proyecto personal y de hobby**. No soy desarrollador profesional, **no conozco Python**, y gran parte del desarrollo se ha hecho con ayuda de **Vive Coding** dentro de https://antigravity.google/.
 
-Aunque sea un proyecto amateur, está diseñado para ser **simple, útil y robusto** dentro de Home Assistant.
+Aunque sea un proyecto amateur, está diseñado para ser **simple, útil y robusto** dentro de Home Assistant.d
+
+Uso personalmente la solución, con un sensor Libre 2 con Juggluco, y Home Assistant a través de nginx redirigiendo puertos en el router. Hasta la fecha funciona perfectamente.
 
 ---
 
-# 🏠 ¿Qué es Home Assistant y por qué es ideal para gestionar sensores?
-
-Para quien no conoce Home Assistant:
+# 🏠 ¿Por qué Home Assistant?
 
 **Home Assistant (HA)** es un sistema de domótica abierto que permite integrar sensores, dispositivos, automatizaciones y servicios en un mismo sitio.
 
-Incluso si hoy no tienes domótica en casa, Home Assistant es una plataforma:
-
-- gratuita
-- segura
-- estable
-- extensible
-- con miles de integraciones
+Incluso si hoy no tienes domótica en casa, te permite integrar el senso de glucosa con automatizaciones, alertas y dashboards personalizados que no requieren dispositivos adicionales. Como enviar alertas a Telegram, etc.
 
 Recomiendo visitar: **https://unlocoysutecnologia.com/**
 
-Es una web perfecta para familiarizarse con Home Assistant desde cero.
-
-### ¿Por qué usar Home Assistant para sensores de glucosa?
-
-Porque te permite crear **automatizaciones**, **avisos inteligentes**, **históricos**, **dashboards**, y combinar los valores del sensor con:
-
-- luces
-- alarmas
-- mensajes
-- llamadas
-- notificaciones
-- estados de presencia
-- horarios (escuela, trabajo, etc.)
-
-Aunque **no tengas ningún enchufe inteligente**, Home Assistant sigue siendo increíble para monitorizar sensores y enviar alertas.
-
 ---
 
-# 🆚 ¿Por qué esta integración y no LibreView?
-
-Hoy en día la única opción para meter un sensor de glucosa en HA es:
-
-👉 https://github.com/PTST/LibreView-HomeAssistant
-
-Pero esa integración depende de **LibreView**, un servicio externo en la nube.
-
-Este proyecto evita esa dependencia mediante un enfoque diferente:
-
-### ✔️ Este proyecto simula un servidor NightScout directamente en Home Assistant
+### ✔️ Este proyecto crea un servidor NightScout directamente en Home Assistant
 
 De esta forma, aplicaciones como:
 
@@ -73,9 +61,7 @@ De esta forma, aplicaciones como:
 
 pueden enviar los datos **directamente a HA**, de forma local, rápida y sin intermediarios.
 
-⚠️ Al ser un **simulador**, no todas las funciones NightScout están implementadas.
-
-Pero sí las necesarias para tener sensores funcionales y estables en Home Assistant con posibilidad de automatizaciones.
+Estos datos nutren los sensores de HA.
 
 ---
 
@@ -105,7 +91,7 @@ Si no tienes hardware ni conocimientos, se recomienda usar Home Assistant Cloud 
 Se recomienda el modelo **Home Assistant Green**, que **actualmente cuesta 139 €**.
 
 Para consultar el precio actualizado en cualquier momento, puedes visitar la página oficial:
-👉 https://www.home-assistant.io/green/
+👉 https://www.home-assistant.io/green/ para adentrarte en el mundo de HA de nuevo visita  **https://unlocoysutecnologia.com/**
 
 ### 2. Home Assistant debe ser accesible desde Internet
 
@@ -114,7 +100,7 @@ Puede lograrse de dos formas:
 - **Home Assistant Cloud**, precio 7,50€ mes https://www.nabucasa.com/pricing/
 - Redirigiendo puertos en el router y usando un **proxy Nginx** (esta es la opción probada en este proyecto) y es **100% gratuita**.
 
-### 3. Tener un sensor de glucosa ( En mi caso Libre 2)
+### 3. Tener un sensor de glucosa ( Libre2, Libre3, Dexcom, etc)
 
 Y utilizar aplicaciones compatibles con NightScout, como:
 
@@ -236,7 +222,7 @@ Atributos adicionales del sensor principal:
 
 # 📅 Entidades de Evento (Tratamientos)
 
-A partir de las versiones recientes, la integración crea entidades de tipo `event` (Ej: `event.<nombre>_treatment`) específicas para los tratamientos que introduzcas en la aplicación (Insulina, Carbohidratos, Cambios de sensor, etc.).
+La integración crea entidades de tipo `event` (Ej: `event.<nombre>_treatment`) específicas para los tratamientos que introduzcas en la aplicación (Insulina, Carbohidratos, Cambios de sensor, etc.).
 
 |Entidad|Descripción|Payload|
 |---|---|---|
@@ -260,6 +246,15 @@ La integración dispara un evento `glucose_ng_alert` y crea una **notificación 
 
 El evento incluye `title`, `message` y `entry_id` (útil para automatizaciones por persona).
 
+Se activa con cada lectura que esté fuera de rango. Si su glucosa es de 200 mg/dL y recibe una lectura cada minuto, la integración activará este evento cada minuto.
+
+A menos que tengas una automatización que escuche específicamente el evento event_type: glucose_ng_alert, este evento ocurre silenciosamente en segundo plano y no envía ninguna notificación.
+
+No tiene lógica de recuperación ni limitación de frecuencia integradas. Si lo usas para alertas de Telegram, recibirás mensajes cada minuto hasta que tu glucosa vuelva a la normalidad.
+
+Por eso no se recomienda usar el evento directamente, sino usar las automatizaciones sugeridas en external/automation_samples/.
+
+
 ## Eventos de Bus del Sistema (Avanzado)
 
 Además de las entidades de sensor y de evento mostradas arriba, la integración sigue disparando eventos puros en el Bus de Home Assistant:
@@ -277,7 +272,7 @@ Puedes suscribirte a estos eventos como **disparadores de automatización** pers
 
 Para mostrar gráficas:
 
-1. Instala **plotly-graph** desde HACS junto a button-card y card-mod
+1. Instala **plotly-graph** desde HACS junto a **button-card** y **card-mod**
 2. Añade una tarjeta como esta: ( Cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses)
 3. En Home Assistant > Configuración > Paneles de Control  >  Añadir panel de control > "Nuevo Panel de control desde cero"
   - Título: Glucosa
