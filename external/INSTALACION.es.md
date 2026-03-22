@@ -8,13 +8,48 @@
 ## Via HACS (recomendado)
 
 1. Accede a HACS ( Instrucciones para instalar HACS: https://www.hacs.xyz)
-2. Busca Home Assistant Glucose NG
-3. Haz click sobre los 3 puntos verticales, y selecciona la opción "Descarga" e instala la última versión.
-4. Si vas a configurar el Dashboard, instala también:
-  a. button-card
-  b. plotly-graph
-  c. card-mod
-5. Reinicia Home Assistant
+2. Añade un repositorio personalizado
+
+![InstallRepo](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/1-InstallRepo.png)
+3. Añade la URL del reposotorio https://github.com/TheBullRing/home-assistant-glucose-ng y tipo Integración:
+
+![RepoURL](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/2-RepoURL.png)
+
+3. Haz click sobre los 3 puntos verticales, y selecciona la opción "Descargar" e instala la última versión.
+
+![Download](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/3-Download.png)
+
+4. Descarga la última versión:
+
+![DownloadButton](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/4-DownloadButton.png)
+
+5. Para el dashboard instala card-mod, button-card y plotly-graph:
+
+![Card-Mod](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/5-Card-Mod.png)
+
+![Button-Card](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/6-Button-Card.png)
+
+![Plotly-Graph](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/7-Plotly-Graph.png)
+
+6. Ves a Configuración > Dispositivos y Servicios > Integraciones > Añadir Integración
+
+![AddIntegration](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/8-AddIntegration.png)
+
+7. Rellena los valores del sensor, **importante** el "secreto compartido" debe ser el mismo que el que configures en el uploader.
+
+![DefaultValues](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/9-DefaultValues.png)
+
+8. Pincha en "Terminar" para finalizar la configuración. Puedes definir un Area para el sensor o dejarlo en blanco.
+
+![Finish](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/10-Finish.png)
+
+9. En Configuración > Dispositivos y Servicios verás la integración instalada.
+
+![IntegrationAdded](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/11-IntegrationAdded.png)
+
+10. Primera vista de la integración, al no tener lecturas los sensores aparecen como "desconocidos".
+
+![FirstView](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/12-FirstView.png)
 
 ## Instalación manual
 
@@ -28,8 +63,6 @@
 Después de reiniciar Home Assistant, añade una entrada de integración por cada dispositivo uploader:
 
 1. Ve a **Configuración → Dispositivos y Servicios → Añadir integración**.
-![Añadir integración](capturas/1-InstallRepo.png)
-
 2. Busca **Glucose NG** y selecciónala.
 3. Completa el formulario:
 

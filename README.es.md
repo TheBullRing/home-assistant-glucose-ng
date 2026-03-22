@@ -34,7 +34,9 @@ Si además se envian tratamientos, el consumo aumentara minimamente.
 Por otro lado, si se usa en modo follower, el consumo aumentara en funcion de la frecuencia de actualizacion de los sensores.
 
 ---
+## Instalación
 
+[Instalación](external/INSTALACION.es.md)
 
 ## 🤓 Sobre este proyecto
 
