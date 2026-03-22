@@ -34,7 +34,7 @@ If used in follower mode, consumption increases according to sensor polling rate
 
 ## 🛠️ Installation
 
-[📘 Open detailed instructions](external/INSTALACION.es.md)
+[📘 Open detailed instructions](external/INSTALACION.md)
 
 ---
 
