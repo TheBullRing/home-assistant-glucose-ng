@@ -5,89 +5,70 @@ views:
     cards:
       - type: vertical-stack
         cards:
-          - type: grid
-            columns: 2
-            square: false
-            card_mod:
-              style: |
-                @media (max-width: 600px) {
-                  #root {
-                    grid-template-columns: 1fr !important;
-                  }
-                }
-            cards:
-              - type: custom:button-card
-                entity: sensor.glucose_ng_javi_javi
-                show_name: false
-                show_state: true
-                styles:
-                  card:
-                    - height: 160px
-                    - border-radius: 18px
-                    - box-shadow: none
-                    - background: white
-                  state:
-                    - font-size: clamp(60px, 20vw, 90px)
-                    - font-weight: 800
-                    - line-height: 1
-                    - color: |
-                        [[[
-                          const g = Number(entity.state);
-                          if (isNaN(g)) return '#616161';
-                          if (g < 70) return '#fdd835';
-                          if (g <= 80) return '#fdd835';
-                          if (g <= 180) return '#00c853';
-                          if (g <= 200) return '#fdd835';
-                          return '#d50000';
-                        ]]]
-                  grid:
-                    - place-items: center
-              - type: custom:button-card
-                show_name: false
-                tap_action:
-                  action: none
-                custom_fields:
-                  arrow: |
+          - type: custom:button-card
+            entity: sensor.glucose_ng_javi_javi
+            show_name: false
+            show_state: true
+            state_display: |
+              [[[
+                const val = entity.state;
+                return `<span>${val}</span><span style="font-size: 0.35em; font-weight: 500; margin-left: 6px; vertical-align: middle;">mg/dL</span>`;
+              ]]]
+            custom_fields:
+              arrow: |
+                [[[
+                  const roc = Number(states['sensor.glucose_ng_javi_javi_rate']?.state || 0);
+                  if (roc >= 2) return "↑";
+                  if (roc >= 0.7) return "↗";
+                  if (roc <= -2) return "↓";
+                  if (roc <= -0.7) return "↘";
+                  return "→";
+                ]]]
+            styles:
+              card:
+                - height: 160px
+                - border-radius: 18px
+                - box-shadow: none
+                - background: white
+                - padding: 8px 16px
+              grid:
+                - grid-template-areas: '"i i i i" ". arrow s ."'
+                - grid-template-columns: 1fr auto auto 1fr
+                - grid-template-rows: auto 1fr
+                - align-items: center
+              state:
+                - justify-self: start
+                - font-size: clamp(50px, 15vw, 84px)
+                - font-weight: 800
+                - line-height: 1
+                - margin-left: 10px
+                - color: |
                     [[[
-                      const roc = Number(states['sensor.glucose_ng_javi_javi_rate']?.state || 0);
-                      if (roc >= 2) return "↑";
-                      if (roc >= 0.7) return "↗";
-                      if (roc <= -2) return "↓";
-                      if (roc <= -0.7) return "↘";
-                      return "→";
+                      const g = Number(entity.state);
+                      if (isNaN(g)) return '#616161';
+                      if (g < 70) return '#fdd835';
+                      if (g <= 80) return '#fdd835';
+                      if (g <= 180) return '#00c853';
+                      if (g <= 200) return '#fdd835';
+                      return '#d50000';
                     ]]]
-                  delta: |
-                    [[[
-                      const d = states['sensor.glucose_ng_javi_javi_delta']?.state ?? '—';
-                      return `<div style="font-size:26px;color:#616161;">Δ ${d}</div>`;
-                    ]]]
-                styles:
-                  card:
-                    - height: 160px
-                    - border-radius: 18px
-                    - box-shadow: none
-                    - background: white
-                  custom_fields:
-                    arrow:
-                      - font-size: clamp(50px, 18vw, 86px)
-                      - font-weight: 900
-                      - line-height: 1
-                      - color: |
-                          [[[
-                            const g = Number(states['sensor.glucose_ng_javi_javi']?.state);
-                            if (isNaN(g)) return '#616161';
-                            if (g < 70) return '#fdd835';
-                            if (g <= 80) return '#fdd835';
-                            if (g <= 180) return '#00c853';
-                            if (g <= 200) return '#fdd835';
-                            return '#d50000';
-                          ]]]
-                    delta:
-                      - margin-top: '-10px'
-                  grid:
-                    - grid-template-areas: '"arrow" "delta"'
-                    - grid-template-rows: 1fr auto
-                    - place-items: center
+              custom_fields:
+                arrow:
+                  - justify-self: end
+                  - font-size: clamp(40px, 12vw, 70px)
+                  - font-weight: 900
+                  - line-height: 1
+                  - margin-right: 12px
+                  - color: |
+                      [[[
+                        const g = Number(entity.state);
+                        if (isNaN(g)) return '#616161';
+                        if (g < 70) return '#fdd835';
+                        if (g <= 80) return '#fdd835';
+                        if (g <= 180) return '#00c853';
+                        if (g <= 200) return '#fdd835';
+                        return '#d50000';
+                      ]]]
           - type: markdown
             content: >
               <div

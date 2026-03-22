@@ -150,7 +150,10 @@ Estas apps envían las lecturas directamente a Home Assistant a través de esta 
 1. Accede a HACS
 2. Busca Home Assistant Glucose NG
 3. Haz click sobre los 3 puntos verticales, y selecciona la opción "Descarga" e instala la última versión.
-4. Si vas a configurar el Dashboard, instala también ApexCharts.
+4. Si vas a configurar el Dashboard, instala también:
+  a. button-card
+  b. plotly-graph
+  c. card-mod
 5. Reinicia Home Assistant
 
 ## Instalación manual
@@ -270,11 +273,11 @@ Puedes suscribirte a estos eventos como **disparadores de automatización** pers
 
 ---
 
-# 📈 Dashboard Lovelace (ApexCharts)
+# 📈 Dashboard Lovelace (plotly-graph)
 
 Para mostrar gráficas:
 
-1. Instala **apexcharts-card** desde HACS.
+1. Instala **plotly-graph** desde HACS junto a button-card y card-mod
 2. Añade una tarjeta como esta: ( Cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses)
 3. En Home Assistant > Configuración > Paneles de Control  >  Añadir panel de control > "Nuevo Panel de control desde cero"
   - Título: Glucosa
@@ -283,69 +286,7 @@ Para mostrar gráficas:
 4. En la barra lateral aparece en el menu ahora la opción "Glucosa":
   - Pincha y pincha en el icono del lapiz para editar el panel. 
   - Selecciona los 3 puntos y pincha la opción "Editor de configuración en bruto"
-  - Borra lo que aparezca y copia y pega el YAML que se muestra a continuación, cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses.
-
-```yaml
-views:
-  - title: Glucosa
-    panel: true
-    cards:
-      - type: custom:apexcharts-card
-        graph_span: 24h
-        header:
-          show: true
-          title: Glucosa - Últimas 24 h (mg/dL)
-        yaxis:
-          - decimals: 0
-        apex_config:
-          stroke:
-            curve: smooth
-            width: 3
-          markers:
-            size: 0
-          legend:
-            show: false
-          yaxis:
-            - forceNiceScale: true
-          annotations:
-            yaxis:
-              - 'y': 70
-                borderColor: '#2e7d32'
-              - 'y': 180
-                borderColor: '#2e7d32'
-              - 'y': 70
-                y2: 180
-                fillColor: rgba(46,125,50,0.12)
-                borderColor: transparent
-        series:
-          - entity: sensor.glucose_ng_glucosa_glucosa
-            name: Glucosa < 70
-            type: line
-            color: '#d32f2f'
-            group_by:
-              duration: 5min
-              func: avg
-            transform: 'return x == null ? null : (Number(x) < 70 ? Number(x) : null);'
-          - entity: sensor.glucose_ng_glucosa_glucosa
-            name: Glucosa 70–180
-            type: line
-            color: '#2e7d32'
-            group_by:
-              duration: 5min
-              func: avg
-            transform: >-
-              return x == null ? null : (Number(x) >= 70 && Number(x) <= 180 ?
-              Number(x) : null);
-          - entity: sensor.glucose_ng_javi_javi
-            name: Glucosa > 180
-            type: line
-            color: '#d32f2f'
-            group_by:
-              duration: 5min
-              func: avg
-            transform: 'return x == null ? null : (Number(x) > 180 ? Number(x) : null);'
-
-```
+  - Borra lo que aparezca y copia y pega el YAML que se encuentra dentro de dashboard/glucosa.yaml , cambia el nombre del sensor sensor glucose_ng_glucosa_glucosa por el que uses.
 
 ---
 
