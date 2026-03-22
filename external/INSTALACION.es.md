@@ -27,9 +27,9 @@
 
 ![Card-Mod](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/5-Card-Mod.png)
 
-![Button-Card](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/6-Button-Card.png)
+![Button-Card](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/6-Button-card.png)
 
-![Plotly-Graph](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/7-Plotly-Graph.png)
+![Plotly-Graph](https://raw.githubusercontent.com/TheBullRing/home-assistant-glucose-ng/main/external/capturas/7-Ploty-graph.png)
 
 6. Ves a Configuración > Dispositivos y Servicios > Integraciones > Añadir Integración
 
