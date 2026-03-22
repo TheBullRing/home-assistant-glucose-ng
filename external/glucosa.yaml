@@ -46,7 +46,7 @@ views:
                     [[[
                       const g = Number(entity.state);
                       if (isNaN(g)) return '#616161';
-                      if (g < 70) return '#fdd835';
+                      if (g < 60) return '#d50000';
                       if (g <= 80) return '#fdd835';
                       if (g <= 180) return '#00c853';
                       if (g <= 200) return '#fdd835';
@@ -63,7 +63,7 @@ views:
                       [[[
                         const g = Number(entity.state);
                         if (isNaN(g)) return '#616161';
-                        if (g < 70) return '#fdd835';
+                        if (g < 60) return '#d50000';
                         if (g <= 80) return '#fdd835';
                         if (g <= 180) return '#00c853';
                         if (g <= 200) return '#fdd835';
@@ -139,8 +139,8 @@ views:
                   yref: 'y'
                   x0: 0
                   x1: 1
-                  y0: 70
-                  y1: 70
+                  y0: 60
+                  y1: 60
                   layer: above
                   line:
                     color: '#9e9e9e'
@@ -213,7 +213,7 @@ views:
                         })
                       })
               - entity: sensor.glucose_ng_javi_javi
-                name: 70–80
+                name: 60–80
                 line:
                   color: '#fdd835'
                   width: 4
@@ -222,7 +222,7 @@ views:
                       ({ ys }) => ({
                         ys: ys.map(y => {
                           const v = Number(y);
-                          return (!Number.isNaN(v) && v >= 70 && v < 80) ? v : null;
+                          return (!Number.isNaN(v) && v >= 60 && v < 80) ? v : null;
                         })
                       })
               - entity: sensor.glucose_ng_javi_javi
@@ -239,16 +239,16 @@ views:
                         })
                       })
               - entity: sensor.glucose_ng_javi_javi
-                name: <70
+                name: <60
                 line:
-                  color: '#fdd835'
+                  color: '#d50000'
                   width: 4
                 filters:
                   - fn: |
                       ({ ys }) => ({
                         ys: ys.map(y => {
                           const v = Number(y);
-                          return (!Number.isNaN(v) && v < 70) ? v : null;
+                          return (!Number.isNaN(v) && v < 60) ? v : null;
                         })
                       })
               - entity: sensor.glucose_ng_javi_javi
