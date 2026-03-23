@@ -110,6 +110,16 @@ El uploader realizará estas llamadas:
             proxy_set_header X-Real-IP $remote_addr;
         }
 ```
+En configuration.yaml de HA:
+```yaml
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
+    - 192.168.1.12
+    - 192.168.1.0/24
+```
+
 ---
 # 📈 Dashboard Lovelace (plotly-graph)
 

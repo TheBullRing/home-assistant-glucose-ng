@@ -84,9 +84,22 @@ def _find_entry_by_token(token_map: dict[str, str], token: str) -> Optional[str]
     token_map: {shared_secret: entry_id}
     Accepts both plaintext and SHA1(plaintext) as the token.
     """
+    if not token:
+        return None
+        
+    token_s = token.strip()
     for secret, entry_id in token_map.items():
-        if token == secret or token.lower() == _sha1(secret).lower():
+        # Strip potential whitespace from stored secret for robustness
+        secret_s = secret.strip()
+        
+        # 1. Direct match (plaintext or both are same hash format)
+        if token_s == secret_s:
             return entry_id
+            
+        # 2. Match token against SHA1 of stored secret
+        if token_s.lower() == _sha1(secret_s).lower():
+            return entry_id
+            
     return None
 
 
@@ -120,9 +133,24 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
     # --- 2. api-secret header ---
     api_sec = request.headers.get("api-secret")
     if api_sec is not None:
-        _LOGGER.debug("_check_auth: api-secret header: '%s'", api_sec)
+        api_sec_s = api_sec.strip()
+        _LOGGER.debug("_check_auth: api-secret header: '%s' (len=%d)", 
+                      api_sec_s[:4] + "***" + api_sec_s[-4:] if len(api_sec_s) > 8 else "***", 
+                      len(api_sec_s))
+        
         for secret, eid in token_map.items():
-            if api_sec == secret or api_sec.lower() == _sha1(secret).lower():
+            secret_s = secret.strip()
+            
+            # Masked comparison logging for debugging
+            m_sec = secret_s[:2] + "***" + secret_s[-2:] if len(secret_s) > 4 else "***"
+            m_sha = _sha1(secret_s)
+            m_sha_disp = m_sha[:4] + "***" + m_sha[-4:]
+            
+            _LOGGER.debug("_check_auth: comparing api-secret against entry '%s': "
+                          "direct_match=%s, sha1_match=%s",
+                          eid, (api_sec_s == secret_s), (api_sec_s.lower() == m_sha.lower()))
+
+            if api_sec_s == secret_s or api_sec_s.lower() == m_sha.lower():
                 _LOGGER.debug("_check_auth: matched api-secret → entry_id=%s ✓", eid)
                 return eid
         _LOGGER.debug("_check_auth: api-secret did not match any entry")
@@ -131,7 +159,7 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         token = auth.split(" ", 1)[1].strip()
-        _LOGGER.debug("_check_auth: Bearer token: '%s'", token)
+        _LOGGER.debug("_check_auth: Bearer token detected (masked)")
         entry_id = _find_entry_by_token(token_map, token)
         if entry_id:
             _LOGGER.debug("_check_auth: matched Bearer → entry_id=%s ✓", entry_id)
@@ -141,6 +169,7 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
     # --- 4. X-Shared-Secret ---
     xsec = request.headers.get("X-Shared-Secret")
     if xsec:
+        _LOGGER.debug("_check_auth: X-Shared-Secret detected (masked)")
         entry_id = _find_entry_by_token(token_map, xsec)
         if entry_id:
             _LOGGER.debug("_check_auth: matched X-Shared-Secret → entry_id=%s ✓", entry_id)
@@ -150,6 +179,7 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
     # --- 5. ?token= query param ---
     qtoken = request.rel_url.query.get("token")
     if qtoken:
+        _LOGGER.debug("_check_auth: ?token= detected (masked)")
         entry_id = _find_entry_by_token(token_map, qtoken)
         if entry_id:
             _LOGGER.debug("_check_auth: matched ?token= → entry_id=%s ✓", entry_id)
@@ -159,8 +189,9 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
     _LOGGER.warning(
         "_check_auth: UNAUTHORIZED — no match found. client_ip=%s | headers=%s | query=%s",
         client_ip,
-        dict(request.headers),
-        dict(request.rel_url.query),
+        {k: (v if k.lower() not in ("api-secret", "authorization", "x-shared-secret") else "***") 
+         for k, v in request.headers.items()},
+        {k: "***" for k in request.rel_url.query},
     )
     return None
 
