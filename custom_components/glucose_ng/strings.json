@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Home Assistant Glucose NG (NightScout Gateway)",
+        "description": "Enter your shared secret, sensor name and thresholds.",
+        "data": {
+          "shared_secret": "Shared secret",
+          "name": "Sensor name",
+          "threshold_low": "Low threshold (mg/dL)",
+          "threshold_high": "High threshold (mg/dL)",
+          "rate_drop": "Rapid drop |rate| (mg/dL/min)"
+        }
+      }
+    },
+    "error": {
+      "range_invalid": "Low must be less than High",
+      "invalid": "Invalid values"
+    }
+  }
+}
