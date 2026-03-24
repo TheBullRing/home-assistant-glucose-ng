@@ -6,7 +6,7 @@ views:
       - type: vertical-stack
         cards:
           - type: custom:button-card
-            entity: sensor.glucose_ng_javi_javi
+            entity: sensor.glucose_ng_glucosa_glucosa
             show_name: false
             show_state: true
             state_display: |
@@ -17,7 +17,7 @@ views:
             custom_fields:
               arrow: |
                 [[[
-                  const roc = Number(states['sensor.glucose_ng_javi_javi_rate']?.state || 0);
+                  const roc = Number(states['sensor.glucose_ng_glucosa_glucosa_rate']?.state || 0);
                   if (roc >= 2) return "↑";
                   if (roc >= 0.7) return "↗";
                   if (roc <= -2) return "↓";
@@ -76,12 +76,12 @@ views:
                 <div style="font-size:22px;color:#757575;">
                   🕒 {{
                     ((as_timestamp(now()) -
-                      as_timestamp(states.sensor.glucose_ng_javi_javi.last_updated))
+                      as_timestamp(states.sensor.glucose_ng_glucosa_glucosa.last_updated))
                       / 60) | round(0)
                   }} min
                 </div>
                 <div style="font-size:22px;color:#757575;">
-                  Δ {{ states('sensor.glucose_ng_javi_javi_delta') }}
+                  Δ {{ states('sensor.glucose_ng_glucosa_glucosa_delta') }}
                 </div>
               </div>
             card_mod:
@@ -199,7 +199,7 @@ views:
                   width: 4
                 connectgaps: false
             entities:
-              - entity: sensor.glucose_ng_javi_javi
+              - entity: sensor.glucose_ng_glucosa_glucosa
                 name: 80–180
                 line:
                   color: '#00c853'
@@ -212,7 +212,7 @@ views:
                           return (!Number.isNaN(v) && v >= 80 && v <= 180) ? v : null;
                         })
                       })
-              - entity: sensor.glucose_ng_javi_javi
+              - entity: sensor.glucose_ng_glucosa_glucosa
                 name: 60–80
                 line:
                   color: '#fdd835'
@@ -225,7 +225,7 @@ views:
                           return (!Number.isNaN(v) && v >= 60 && v < 80) ? v : null;
                         })
                       })
-              - entity: sensor.glucose_ng_javi_javi
+              - entity: sensor.glucose_ng_glucosa_glucosa
                 name: 180–200
                 line:
                   color: '#fdd835'
@@ -238,7 +238,7 @@ views:
                           return (!Number.isNaN(v) && v >= 180 && v <= 200) ? v : null;
                         })
                       })
-              - entity: sensor.glucose_ng_javi_javi
+              - entity: sensor.glucose_ng_glucosa_glucosa
                 name: <60
                 line:
                   color: '#d50000'
@@ -251,7 +251,7 @@ views:
                           return (!Number.isNaN(v) && v < 60) ? v : null;
                         })
                       })
-              - entity: sensor.glucose_ng_javi_javi
+              - entity: sensor.glucose_ng_glucosa_glucosa
                 name: '>200'
                 line:
                   color: '#d50000'
