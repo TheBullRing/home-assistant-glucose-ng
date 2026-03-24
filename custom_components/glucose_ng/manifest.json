@@ -17,5 +17,5 @@
   "after_dependencies": [
     "recorder"
   ],
-  "min_home_assistant": "2024.6.0"
+  "homeassistant": "2024.6.0"
 }
