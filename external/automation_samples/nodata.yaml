@@ -5,13 +5,13 @@ description: >-
 triggers:
   - platform: template
     value_template: >
-      {{ (now() - states.sensor.glucose_ng_javi_javi.last_changed).total_seconds() > 900 }}
+      {{ (now() - states.sensor.glucose_ng_glucosa_glucosa.last_changed).total_seconds() > 900 }}
 actions:
   - repeat:
       while:
         - condition: template
           value_template: >
-            {{ (now() - states.sensor.glucose_ng_javi_javi.last_changed).total_seconds() > 900 }}
+            {{ (now() - states.sensor.glucose_ng_glucosa_glucosa.last_changed).total_seconds() > 900 }}
       sequence:
         - data:
             message: >-
@@ -20,7 +20,7 @@ actions:
           action: telegram_bot.send_message
         - wait_for_trigger:
             - platform: state
-              entity_id: sensor.glucose_ng_javi_javi
+              entity_id: sensor.glucose_ng_glucosa_glucosa
           timeout: "00:15:00"
           continue_on_timeout: true
   - data:
