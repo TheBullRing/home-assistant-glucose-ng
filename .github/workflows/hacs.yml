@@ -1,10 +1,10 @@
 name: HACS Validation
 
 on:
-  pull_request:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   validate:
@@ -16,4 +16,4 @@ jobs:
       - name: HACS validation
         uses: hacs/action@main
         with:
-          category: "integration"
+          category: integration
