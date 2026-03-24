@@ -14,4 +14,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Hassfest validation
-        uses: home-assistant/actions/hassfest@v2
+        uses: home-assistant/actions/hassfest@master
