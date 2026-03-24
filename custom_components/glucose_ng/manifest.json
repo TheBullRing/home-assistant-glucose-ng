@@ -14,6 +14,8 @@
   "loggers": [
     "custom_components.glucose_ng"
   ],
-  "after_dependencies": [],
-  "homeassistant": "2024.6.0"
+  "after_dependencies": [
+    "recorder"
+  ],
+  "min_home_assistant": "2024.6.0"
 }

@@ -4,6 +4,7 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
+import homeassistant.helpers.config_validation as cv
 from homeassistant.const import Platform
 from .const import (
     DOMAIN, CONF_SHARED_SECRET, CONF_NAME,
@@ -19,6 +20,8 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.EVENT]
 _TOKEN_MAP = "token_map"
 # per-entry config data
 _ENTRIES = "entries"
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
