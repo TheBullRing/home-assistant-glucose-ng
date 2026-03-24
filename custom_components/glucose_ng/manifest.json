@@ -16,6 +16,5 @@
   ],
   "after_dependencies": [
     "recorder"
-  ],
-  "homeassistant": "2024.6.0"
+  ]
 }
