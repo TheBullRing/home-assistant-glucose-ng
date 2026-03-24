@@ -2,8 +2,9 @@
   "domain": "glucose_ng",
   "name": "Home Assistant Glucose NG (NightScout Gateway)",
   "version": "0.1.1",
-  "config_flow": true,
   "documentation": "https://github.com/TheBullRing/home-assistant-glucose-ng/",
+  "issue_tracker": "https://github.com/TheBullRing/home-assistant-glucose-ng/issues",
+  "config_flow": true,
   "requirements": [],
   "codeowners": [
     "@TheBullRing"
@@ -12,9 +13,6 @@
   "integration_type": "hub",
   "loggers": [
     "custom_components.glucose_ng"
-  ],
-  "dependencies": [
-    "http"
   ],
   "after_dependencies": [],
   "homeassistant": "2024.6.0"

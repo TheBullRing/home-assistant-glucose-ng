@@ -1,9 +1,6 @@
 {
   "name": "Home Assistant Glucose NG (NightScout Gateway)",
   "content_in_root": false,
-  "domains": [
-    "glucose_ng"
-  ],
   "country": "ES",
   "homeassistant": "2024.6.0",
   "render_readme": true
