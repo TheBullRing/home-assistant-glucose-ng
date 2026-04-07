@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import hashlib
 import time
+import uuid
+import json
 from typing import Callable, Optional
 from http import HTTPStatus
 from aiohttp import web
@@ -49,18 +51,18 @@ def _grant_session(client_ip: str, entry_id: str) -> None:
     _LOGGER.debug("Session granted: ip=%s → entry_id=%s (TTL=%ds)", client_ip, entry_id, SESSION_TTL_SECONDS)
 
 
-def _check_session(client_ip: str) -> Optional[str]:
+def _check_session(client_ip: str, req_id: str = "no-id") -> Optional[str]:
     """Return the entry_id for a valid session, or None."""
     record = _auth_sessions.get(client_ip)
     if record is None:
-        _LOGGER.debug("_check_session: no session for ip=%s", client_ip)
+        _LOGGER.debug("[%s] _check_session: no session for ip=%s", req_id, client_ip)
         return None
     entry_id, expiry = record
     remaining = expiry - time.monotonic()
     if remaining > 0:
-        _LOGGER.debug("_check_session: valid session ip=%s → entry_id=%s (%.0fs left)", client_ip, entry_id, remaining)
+        _LOGGER.debug("[%s] _check_session: valid session ip=%s → entry_id=%s (%.0fs left)", req_id, client_ip, entry_id, remaining)
         return entry_id
-    _LOGGER.debug("_check_session: expired session for ip=%s", client_ip)
+    _LOGGER.debug("[%s] _check_session: expired session for ip=%s", req_id, client_ip)
     _auth_sessions.pop(client_ip, None)
     return None
 
@@ -103,7 +105,7 @@ def _find_entry_by_token(token_map: dict[str, str], token: str) -> Optional[str]
     return None
 
 
-def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str]:
+def _check_auth(request: web.Request, token_map: dict[str, str], req_id: str = "no-id") -> Optional[str]:
     """
     Authenticate the request against all registered entries.
     Returns the matching entry_id, or None if unauthorized.
@@ -118,23 +120,24 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
     """
     _purge_expired_sessions()
     client_ip = _get_client_ip(request)
-    _LOGGER.debug("_check_auth: client_ip=%s, %d entry/entries registered", client_ip, len(token_map))
+    _LOGGER.debug("[%s] _check_auth: client_ip=%s, %d entry/entries registered", req_id, client_ip, len(token_map))
 
     if not token_map:
-        _LOGGER.warning("_check_auth: no entries registered → deny")
+        _LOGGER.warning("[%s] _check_auth: no entries registered → deny", req_id)
         return None
 
     # --- 1. IP session ---
-    entry_id = _check_session(client_ip)
+    entry_id = _check_session(client_ip, req_id)
     if entry_id:
-        _LOGGER.debug("_check_auth: authorized via IP session → entry_id=%s ✓", entry_id)
+        _LOGGER.debug("[%s] _check_auth: authorized via IP session → entry_id=%s ✓", req_id, entry_id)
         return entry_id
 
     # --- 2. api-secret header ---
     api_sec = request.headers.get("api-secret")
     if api_sec is not None:
         api_sec_s = api_sec.strip()
-        _LOGGER.debug("_check_auth: api-secret header: '%s' (len=%d)", 
+        _LOGGER.debug("[%s] _check_auth: api-secret header: '%s' (len=%d)", 
+                      req_id,
                       api_sec_s[:4] + "***" + api_sec_s[-4:] if len(api_sec_s) > 8 else "***", 
                       len(api_sec_s))
         
@@ -146,48 +149,48 @@ def _check_auth(request: web.Request, token_map: dict[str, str]) -> Optional[str
             m_sha = _sha1(secret_s)
             m_sha_disp = m_sha[:4] + "***" + m_sha[-4:]
             
-            _LOGGER.debug("_check_auth: comparing api-secret against entry '%s': "
-                          "direct_match=%s, sha1_match=%s",
-                          eid, (api_sec_s == secret_s), (api_sec_s.lower() == m_sha.lower()))
+            _LOGGER.debug("[%s] _check_auth: comparing api-secret against entry '%s': direct_match=%s, sha1_match=%s",
+                          req_id, eid, (api_sec_s == secret_s), (api_sec_s.lower() == m_sha.lower()))
 
             if api_sec_s == secret_s or api_sec_s.lower() == m_sha.lower():
-                _LOGGER.debug("_check_auth: matched api-secret → entry_id=%s ✓", eid)
+                _LOGGER.debug("[%s] _check_auth: matched api-secret → entry_id=%s ✓", req_id, eid)
                 return eid
-        _LOGGER.debug("_check_auth: api-secret did not match any entry")
+        _LOGGER.debug("[%s] _check_auth: api-secret did not match any entry", req_id)
 
     # --- 3. Authorization: Bearer ---
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         token = auth.split(" ", 1)[1].strip()
-        _LOGGER.debug("_check_auth: Bearer token detected (masked)")
+        _LOGGER.debug("[%s] _check_auth: Bearer token detected (masked)", req_id)
         entry_id = _find_entry_by_token(token_map, token)
         if entry_id:
-            _LOGGER.debug("_check_auth: matched Bearer → entry_id=%s ✓", entry_id)
+            _LOGGER.debug("[%s] _check_auth: matched Bearer → entry_id=%s ✓", req_id, entry_id)
             return entry_id
-        _LOGGER.debug("_check_auth: Bearer did not match any entry")
+        _LOGGER.debug("[%s] _check_auth: Bearer did not match any entry", req_id)
 
     # --- 4. X-Shared-Secret ---
     xsec = request.headers.get("X-Shared-Secret")
     if xsec:
-        _LOGGER.debug("_check_auth: X-Shared-Secret detected (masked)")
+        _LOGGER.debug("[%s] _check_auth: X-Shared-Secret detected (masked)", req_id)
         entry_id = _find_entry_by_token(token_map, xsec)
         if entry_id:
-            _LOGGER.debug("_check_auth: matched X-Shared-Secret → entry_id=%s ✓", entry_id)
+            _LOGGER.debug("[%s] _check_auth: matched X-Shared-Secret → entry_id=%s ✓", req_id, entry_id)
             return entry_id
-        _LOGGER.debug("_check_auth: X-Shared-Secret did not match any entry")
+        _LOGGER.debug("[%s] _check_auth: X-Shared-Secret did not match any entry", req_id)
 
     # --- 5. ?token= query param ---
     qtoken = request.rel_url.query.get("token")
     if qtoken:
-        _LOGGER.debug("_check_auth: ?token= detected (masked)")
+        _LOGGER.debug("[%s] _check_auth: ?token= detected (masked)", req_id)
         entry_id = _find_entry_by_token(token_map, qtoken)
         if entry_id:
-            _LOGGER.debug("_check_auth: matched ?token= → entry_id=%s ✓", entry_id)
+            _LOGGER.debug("[%s] _check_auth: matched ?token= → entry_id=%s ✓", req_id, entry_id)
             return entry_id
-        _LOGGER.debug("_check_auth: ?token= did not match any entry")
+        _LOGGER.debug("[%s] _check_auth: ?token= did not match any entry", req_id)
 
     _LOGGER.warning(
-        "_check_auth: UNAUTHORIZED — no match found. client_ip=%s | headers=%s | query=%s",
+        "[%s] _check_auth: UNAUTHORIZED — no match found. client_ip=%s | headers=%s | query=%s",
+        req_id,
         client_ip,
         {k: (v if k.lower() not in ("api-secret", "authorization", "x-shared-secret") else "***") 
          for k, v in request.headers.items()},
@@ -213,28 +216,28 @@ class _BasePostEventView(HomeAssistantView):
         self._signal_name = signal_name
 
     async def post(self, request: web.Request):
+        req_id = uuid.uuid4().hex[:6]
         _LOGGER.debug(
-            "%s POST received. URL=%s, Headers=%s",
-            self.__class__.__name__, request.url, dict(request.headers),
+            "[%s] %s POST received. URL=%s, Headers=%s",
+            req_id, self.__class__.__name__, request.url, dict(request.headers),
         )
 
         token_map = self._get_token_map()
-        entry_id = _check_auth(request, token_map)
+        entry_id = _check_auth(request, token_map, req_id)
         if not entry_id:
-            _LOGGER.warning("%s: authentication failed → 401", self.__class__.__name__)
+            _LOGGER.warning("[%s] %s: authentication failed → 401", req_id, self.__class__.__name__)
             return web.Response(status=HTTPStatus.UNAUTHORIZED, text="unauthorized")
 
         try:
-            import json as _json
             body = await request.text()
-            _LOGGER.debug("%s: raw body: %s", self.__class__.__name__, body)
-            data = _json.loads(body)
+            _LOGGER.debug("[%s] %s: raw request body: %s", req_id, self.__class__.__name__, body)
+            data = json.loads(body)
         except Exception as exc:
-            _LOGGER.error("%s: failed to parse JSON: %s", self.__class__.__name__, exc)
+            _LOGGER.error("[%s] %s: failed to parse JSON: %s", req_id, self.__class__.__name__, exc)
             return web.Response(status=HTTPStatus.BAD_REQUEST, text="invalid json")
 
         items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
-        _LOGGER.debug("%s: parsed %d items for entry_id=%s", self.__class__.__name__, len(items), entry_id)
+        _LOGGER.debug("[%s] %s: parsed %d items for entry_id=%s", req_id, self.__class__.__name__, len(items), entry_id)
 
         count_ok = 0
         signal = f"{self._signal_name}_{entry_id}"
@@ -243,9 +246,9 @@ class _BasePostEventView(HomeAssistantView):
             try:
                 # Ensure we sort by integer timestamp, defaulting to 0 if missing/invalid
                 items.sort(key=lambda x: int(x.get("date") or 0))
-                _LOGGER.debug("%s: Sorted %d entries chronologically", self.__class__.__name__, len(items))
+                _LOGGER.debug("[%s] %s: Sorted %d entries chronologically", req_id, self.__class__.__name__, len(items))
             except Exception as exc:
-                _LOGGER.error("%s: Sorting failed: %s", self.__class__.__name__, exc)
+                _LOGGER.error("[%s] %s: Sorting failed: %s", req_id, self.__class__.__name__, exc)
 
         for item in items:
             # Special parsing only if it's the entries (glucose readings) endpoint,
@@ -253,7 +256,7 @@ class _BasePostEventView(HomeAssistantView):
             if self._signal_name == SIGNAL_NEW_READING:
                 sgv = item.get("sgv") or item.get("mbg")
                 if sgv is None:
-                    _LOGGER.debug("Entry skipped (no sgv/mbg): %s", item)
+                    _LOGGER.debug("[%s] Entry skipped (no sgv/mbg): %s", req_id, item)
                     continue
                 epoch_ms = item.get("date")
                 payload = {
@@ -265,7 +268,7 @@ class _BasePostEventView(HomeAssistantView):
             else:
                 payload = item
 
-            _LOGGER.debug("Dispatching signal '%s'", signal)
+            _LOGGER.debug("[%s] Dispatching signal '%s'", req_id, signal)
             async_dispatcher_send(self.hass, signal, payload)
             
             # Fire a standard Home Assistant event for treatments/devicestatus so users can automate
@@ -279,8 +282,11 @@ class _BasePostEventView(HomeAssistantView):
 
             count_ok += 1
 
-        _LOGGER.info("%s: accepted %d/%d items (entry_id=%s)", self.__class__.__name__, count_ok, len(items), entry_id)
-        return web.json_response({"ok": True, "count": count_ok}, status=HTTPStatus.OK)
+        _LOGGER.info("[%s] %s: accepted %d/%d items (entry_id=%s)", req_id, self.__class__.__name__, count_ok, len(items), entry_id)
+        
+        resp_data = {"ok": True, "count": count_ok}
+        _LOGGER.debug("[%s] %s: raw response payload: %s", req_id, self.__class__.__name__, json.dumps(resp_data))
+        return web.json_response(resp_data, status=HTTPStatus.OK)
 
     async def get(self, request: web.Request):
         """
@@ -289,15 +295,17 @@ class _BasePostEventView(HomeAssistantView):
         For treatments, we query the Home Assistant recorder database to return historical event data.
         For others, we return an empty array `[]` so the client doesn't crash. 
         """
-        _LOGGER.debug("%s GET received. URL=%s", self.__class__.__name__, request.url)
+        req_id = uuid.uuid4().hex[:6]
+        _LOGGER.debug("[%s] %s GET received. URL=%s, Headers=%s", req_id, self.__class__.__name__, request.url, dict(request.headers))
         
         if self._signal_name not in (SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT):
+            _LOGGER.debug("[%s] %s: unsupported GET endpoint for signal %s. returning empty [].", req_id, self.__class__.__name__, self._signal_name)
             return web.json_response([], status=HTTPStatus.OK)
             
         token_map = self._get_token_map()
-        entry_id = _check_auth(request, token_map)
+        entry_id = _check_auth(request, token_map, req_id)
         if not entry_id:
-            _LOGGER.warning("%s GET: authentication failed → 401", self.__class__.__name__)
+            _LOGGER.warning("[%s] %s GET: authentication failed → 401", req_id, self.__class__.__name__)
             return web.Response(status=HTTPStatus.UNAUTHORIZED, text="unauthorized")
 
         ent_reg = er.async_get(self.hass)
@@ -312,7 +320,7 @@ class _BasePostEventView(HomeAssistantView):
             return web.json_response([], status=HTTPStatus.OK)
         
         if not entity_id:
-            _LOGGER.warning("%s GET: could not find entity in registry for entry_id=%s", self.__class__.__name__, entry_id)
+            _LOGGER.warning("[%s] %s GET: could not find entity in registry for entry_id=%s", req_id, self.__class__.__name__, entry_id)
             return web.json_response([], status=HTTPStatus.OK)
         
         try:
@@ -354,7 +362,7 @@ class _BasePostEventView(HomeAssistantView):
         if query_date_lte:
             end_time = _parse_date(query_date_lte)
         
-        _LOGGER.debug("%s: Querying HA history for %s since %s to %s", self.__class__.__name__, entity_id, start_time, end_time)
+        _LOGGER.debug("[%s] %s: Querying HA history for %s since %s to %s", req_id, self.__class__.__name__, entity_id, start_time, end_time)
         
         states_dict = await recorder.get_instance(self.hass).async_add_executor_job(
             history.get_significant_states,
@@ -370,7 +378,7 @@ class _BasePostEventView(HomeAssistantView):
         )
         
         states = states_dict.get(entity_id, [])
-        _LOGGER.debug("%s: Found %d historical states for %s", self.__class__.__name__, len(states), entity_id)
+        _LOGGER.debug("[%s] %s: Found %d historical states for %s", req_id, self.__class__.__name__, len(states), entity_id)
 
         ns_entries = []
         seen_epochs = set()
@@ -455,7 +463,8 @@ class _BasePostEventView(HomeAssistantView):
         # Apply count limit
         ns_entries = ns_entries[:count]
         
-        _LOGGER.debug("%s GET returning %d entries", self.__class__.__name__, len(ns_entries))
+        _LOGGER.debug("[%s] %s GET returning %d entries", req_id, self.__class__.__name__, len(ns_entries))
+        _LOGGER.debug("[%s] %s GET raw response payload: %s", req_id, self.__class__.__name__, json.dumps(ns_entries))
         return web.json_response(ns_entries, status=HTTPStatus.OK)
 
 
