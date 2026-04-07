@@ -13,7 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.components import recorder
 from homeassistant.components.recorder import history
 import homeassistant.util.dt as dt_util
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from .const import DOMAIN, SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT, SIGNAL_NEW_DEVICESTATUS
 
 _LOGGER = logging.getLogger(__name__)
@@ -316,19 +316,51 @@ class _BasePostEventView(HomeAssistantView):
             return web.json_response([], status=HTTPStatus.OK)
         
         try:
-            count = int(request.rel_url.query.get("count", 10))
+            # OpenAGP uses limit, Nightscout standard uses count
+            limit_val = request.rel_url.query.get("limit") or request.rel_url.query.get("count")
+            count = int(limit_val) if limit_val else 10
         except ValueError:
             count = 10
             
-        start_time = dt_util.utcnow() - timedelta(hours=24)
+        def _parse_date(date_str):
+            try:
+                epoch = float(date_str)
+                if epoch > 1e11: # milliseconds
+                    epoch = epoch / 1000.0
+                return datetime.fromtimestamp(epoch, tz=timezone.utc)
+            except ValueError:
+                return dt_util.parse_datetime(date_str)
+
+        start_time = None
+        query_date_gte = (
+            request.rel_url.query.get("date$gte") or 
+            request.rel_url.query.get("created_at$gte") or 
+            request.rel_url.query.get("find[date][$gte]") or 
+            request.rel_url.query.get("find[created_at][$gte]")
+        )
+        if query_date_gte:
+            start_time = _parse_date(query_date_gte)
+            
+        if not start_time:
+            start_time = dt_util.utcnow() - timedelta(hours=24)
+
+        end_time = None
+        query_date_lte = (
+            request.rel_url.query.get("date$lte") or 
+            request.rel_url.query.get("created_at$lte") or 
+            request.rel_url.query.get("find[date][$lte]") or 
+            request.rel_url.query.get("find[created_at][$lte]")
+        )
+        if query_date_lte:
+            end_time = _parse_date(query_date_lte)
         
-        _LOGGER.debug("%s: Querying HA history for %s since %s", self.__class__.__name__, entity_id, start_time)
+        _LOGGER.debug("%s: Querying HA history for %s since %s to %s", self.__class__.__name__, entity_id, start_time, end_time)
         
         states_dict = await recorder.get_instance(self.hass).async_add_executor_job(
             history.get_significant_states,
             self.hass,
             start_time,
-            None, # end_time
+            end_time, # end_time
             [entity_id],
             None, # filters
             True, # include_start_time_state
@@ -341,6 +373,9 @@ class _BasePostEventView(HomeAssistantView):
         _LOGGER.debug("%s: Found %d historical states for %s", self.__class__.__name__, len(states), entity_id)
 
         ns_entries = []
+        seen_epochs = set()
+        last_sgv = None
+
         for s in states:
             if s.state in (None, "unknown", "unavailable"):
                 continue
@@ -351,12 +386,27 @@ class _BasePostEventView(HomeAssistantView):
                 except ValueError:
                     continue
                     
-                epoch_ms = s.attributes.get("epoch_ms", int(s.last_updated.timestamp() * 1000))
+                epoch_ms = s.attributes.get("epoch_ms")
+                is_fallback = False
+                if epoch_ms is None:
+                    epoch_ms = int(s.last_updated.timestamp() * 1000)
+                    is_fallback = True
+                    
+                if epoch_ms in seen_epochs:
+                    continue
+                    
+                # If we don't have exact epoch_ms and SGV hasn't changed, assume it's a duplicate HA state update
+                if is_fallback and sgv == last_sgv:
+                    continue
+                    
+                seen_epochs.add(epoch_ms)
+                last_sgv = sgv
+                
                 direction = s.attributes.get("direction", "NONE")
                 
                 entry_dict = {
-                    "sgv": sgv,
-                    "date": epoch_ms,
+                    "sgv": int(sgv) if sgv.is_integer() else sgv,
+                    "date": int(epoch_ms),
                     "dateString": s.last_updated.isoformat(),
                     "direction": direction,
                     "type": s.attributes.get("type", "sgv"),
@@ -393,8 +443,15 @@ class _BasePostEventView(HomeAssistantView):
                         
                 ns_entries.append(treatment_dict)
             
-        # Nightscout expects newest first
-        ns_entries.reverse()
+        # Sorting: history is ascending (oldest first)
+        sort_val = request.rel_url.query.get("sort", "")
+        if sort_val in ("date", "created_at", "+date", "+created_at", "date asc", "created_at asc"):
+            # Ascending requested
+            pass
+        else:
+            # Default to newest first
+            ns_entries.reverse()
+
         # Apply count limit
         ns_entries = ns_entries[:count]
         
