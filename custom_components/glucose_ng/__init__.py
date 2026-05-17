@@ -8,6 +8,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.const import Platform
 from .const import (
     DOMAIN, CONF_SHARED_SECRET, CONF_NAME,
+    CONF_URL_PREFIX, DEFAULT_URL_PREFIX,
     CONF_LOW, CONF_HIGH, CONF_RATE_DROP,
     DEFAULT_NAME, DEFAULT_LOW, DEFAULT_HIGH, DEFAULT_RATE_DROP,
 )
@@ -56,8 +57,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     def get_token_map() -> dict[str, str]:
         return hass.data[DOMAIN].get(_TOKEN_MAP, {})
 
+    # Read the URL prefix from the entry's config data.
+    url_prefix = entry.data.get(CONF_URL_PREFIX, DEFAULT_URL_PREFIX)
+
     # Views are registered only once (the helper is idempotent).
-    register_http_views(hass, get_token_map)
+    register_http_views(hass, get_token_map, url_prefix)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))

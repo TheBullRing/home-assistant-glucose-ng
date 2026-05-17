@@ -473,45 +473,45 @@ class _RouteView(_BasePostEventView):
     pass
 
 class GlucoseNGV1EntriesView(_BasePostEventView):
-    url = "/api/v1/entries"
-    extra_urls = ["/api/v1/entries.json"]
     name = "api:glucose_ng:v1_entries"
-    def __init__(self, hass, get_token_map):
+    def __init__(self, hass, get_token_map, url_base):
+        self.url = f"{url_base}/api/v1/entries"
+        self.extra_urls = [f"{url_base}/api/v1/entries.json"]
         super().__init__(hass, get_token_map, SIGNAL_NEW_READING)
 
 class GlucoseNGV3EntriesView(_BasePostEventView):
-    url = "/api/v3/entries"
-    extra_urls = ["/api/v3/entries.json"]
     name = "api:glucose_ng:v3_entries"
-    def __init__(self, hass, get_token_map):
+    def __init__(self, hass, get_token_map, url_base):
+        self.url = f"{url_base}/api/v3/entries"
+        self.extra_urls = [f"{url_base}/api/v3/entries.json"]
         super().__init__(hass, get_token_map, SIGNAL_NEW_READING)
 
 class GlucoseNGV1TreatmentsView(_BasePostEventView):
-    url = "/api/v1/treatments"
-    extra_urls = ["/api/v1/treatments.json"]
     name = "api:glucose_ng:v1_treatments"
-    def __init__(self, hass, get_token_map):
+    def __init__(self, hass, get_token_map, url_base):
+        self.url = f"{url_base}/api/v1/treatments"
+        self.extra_urls = [f"{url_base}/api/v1/treatments.json"]
         super().__init__(hass, get_token_map, SIGNAL_NEW_TREATMENT)
 
 class GlucoseNGV3TreatmentsView(_BasePostEventView):
-    url = "/api/v3/treatments"
-    extra_urls = ["/api/v3/treatments.json"]
     name = "api:glucose_ng:v3_treatments"
-    def __init__(self, hass, get_token_map):
+    def __init__(self, hass, get_token_map, url_base):
+        self.url = f"{url_base}/api/v3/treatments"
+        self.extra_urls = [f"{url_base}/api/v3/treatments.json"]
         super().__init__(hass, get_token_map, SIGNAL_NEW_TREATMENT)
 
 class GlucoseNGV1DeviceStatusView(_BasePostEventView):
-    url = "/api/v1/devicestatus"
-    extra_urls = ["/api/v1/devicestatus.json"]
     name = "api:glucose_ng:v1_devicestatus"
-    def __init__(self, hass, get_token_map):
+    def __init__(self, hass, get_token_map, url_base):
+        self.url = f"{url_base}/api/v1/devicestatus"
+        self.extra_urls = [f"{url_base}/api/v1/devicestatus.json"]
         super().__init__(hass, get_token_map, SIGNAL_NEW_DEVICESTATUS)
 
 class GlucoseNGV3DeviceStatusView(_BasePostEventView):
-    url = "/api/v3/devicestatus"
-    extra_urls = ["/api/v3/devicestatus.json"]
     name = "api:glucose_ng:v3_devicestatus"
-    def __init__(self, hass, get_token_map):
+    def __init__(self, hass, get_token_map, url_base):
+        self.url = f"{url_base}/api/v3/devicestatus"
+        self.extra_urls = [f"{url_base}/api/v3/devicestatus.json"]
         super().__init__(hass, get_token_map, SIGNAL_NEW_DEVICESTATUS)
 
 
@@ -521,12 +521,12 @@ class GlucoseNGV2AuthView(HomeAssistantView):
     On success, grants an IP session mapped to the matching entry_id.
     """
     requires_auth = False
-    url = r"/api/v2/authorization/request/{token}"
     name = "api:glucose_ng:v2_auth"
 
-    def __init__(self, hass: HomeAssistant, get_token_map: Callable[[], dict[str, str]]):
+    def __init__(self, hass: HomeAssistant, get_token_map: Callable[[], dict[str, str]], url_base: str):
         self.hass = hass
         self._get_token_map = get_token_map
+        self.url = f"{url_base}/api/v2/authorization/request/{{token}}"
 
     async def get(self, request: web.Request, token: str):
         client_ip = _get_client_ip(request)
@@ -564,9 +564,12 @@ class GlucoseNGStatusView(HomeAssistantView):
     Some uploaders verify server status before pushing data.
     """
     requires_auth = False
-    url = "/api/v1/status"
-    extra_urls = ["/api/v1/status.json"]
     name = "api:glucose_ng:v1_status"
+
+    def __init__(self, url_base: str):
+        self.url = f"{url_base}/api/v1/status"
+        self.extra_urls = [f"{url_base}/api/v1/status.json"]
+
 
     async def get(self, request: web.Request):
         now_ms = int(time.time() * 1000)
@@ -663,9 +666,11 @@ class GlucoseNGVersionView(HomeAssistantView):
     Nightscout v3 version endpoint.
     """
     requires_auth = False
-    url = "/api/v3/version"
-    extra_urls = ["/api/v3/version.json"]
     name = "api:glucose_ng:v3_version"
+
+    def __init__(self, url_base: str):
+        self.url = f"{url_base}/api/v3/version"
+        self.extra_urls = [f"{url_base}/api/v3/version.json"]
 
     async def get(self, request: web.Request):
         return web.json_response({
@@ -677,22 +682,27 @@ class GlucoseNGVersionView(HomeAssistantView):
 # Registration helpers
 # ---------------------------------------------------------------------------
 
-def register_http_views(hass: HomeAssistant, get_token_map: Callable[[], dict[str, str]]) -> None:
+def register_http_views(hass: HomeAssistant, get_token_map: Callable[[], dict[str, str]], url_prefix: str = "hagng") -> None:
     global _registered
     if _registered:
         _LOGGER.debug("HTTP views already registered, skipping")
         return
+
+    prefix = url_prefix.strip("/")
+    # When prefix is empty, url_base is "" so paths become /api/v1/...
+    # When prefix is set, url_base is "/hagng" so paths become /hagng/api/v1/...
+    url_base = f"/{prefix}" if prefix else ""
     
     views = [
-        GlucoseNGV1EntriesView(hass, get_token_map),
-        GlucoseNGV3EntriesView(hass, get_token_map),
-        GlucoseNGV1TreatmentsView(hass, get_token_map),
-        GlucoseNGV3TreatmentsView(hass, get_token_map),
-        GlucoseNGV1DeviceStatusView(hass, get_token_map),
-        GlucoseNGV3DeviceStatusView(hass, get_token_map),
-        GlucoseNGV2AuthView(hass, get_token_map),
-        GlucoseNGStatusView(),
-        GlucoseNGVersionView(),
+        GlucoseNGV1EntriesView(hass, get_token_map, url_base),
+        GlucoseNGV3EntriesView(hass, get_token_map, url_base),
+        GlucoseNGV1TreatmentsView(hass, get_token_map, url_base),
+        GlucoseNGV3TreatmentsView(hass, get_token_map, url_base),
+        GlucoseNGV1DeviceStatusView(hass, get_token_map, url_base),
+        GlucoseNGV3DeviceStatusView(hass, get_token_map, url_base),
+        GlucoseNGV2AuthView(hass, get_token_map, url_base),
+        GlucoseNGStatusView(url_base),
+        GlucoseNGVersionView(url_base),
     ]
     
     for view in views:

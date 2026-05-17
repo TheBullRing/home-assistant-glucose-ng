@@ -43,6 +43,7 @@ Field   Description   Default value
 ------   -----------   -------------
 **Shared Secret**   API token configured in the uploader   (required)
 **Name**   Device/person name   Glucose
+**URL prefix**   Path prefix for Nightscout endpoints   hagng
 **Low threshold**   Hypoglycemia limit (mg/dL)   70
 **High threshold**   Hyperglycemia limit (mg/dL)   180
 **Rapid drop**   Alert when the rate ≤ N mg/dL/min   3.0
@@ -54,13 +55,13 @@ In xDrip, Diabox or Juggluco configure:
 
 Setting   Value
 ------   -----
-**URL**   https://your-ha-server
+**URL**   https://your-ha-server/hagng
 **API Secret**   Same as in Home Assistant
 **API version**   v3
 Calls performed:
-- `GET https://your-ha/api/v2/authorization/request/<token>`
-- `POST https://your-ha/api/v3/entries`
-- `POST https://your-ha/api/v3/treatments`
+- `GET https://your-ha/hagng/api/v2/authorization/request/<token>`
+- `POST https://your-ha/hagng/api/v3/entries`
+- `POST https://your-ha/hagng/api/v3/treatments`
 **Nginx Note:** HA may remove `Authorization`. The integration uses an IP-based session for 5 minutes.
 
 ### Nginx configuration:
@@ -111,9 +112,9 @@ http:
 SECRET="your_shared_secret"
 SECRET_SHA1=$(echo -n "$SECRET"  sha1sum  cut -d' ' -f1)
 
-curl -s "http://YOUR_HA_IP:8123/api/v2/authorization/request/$SECRET"
-curl -X POST "http://YOUR_HA_IP:8123/api/v3/entries" -H "Content-Type: application/json" -H "api-secret: $SECRET_SHA1" -d '[{"sgv": 120, "date": '"$(date +%s%3N)"', "direction": "Flat", "type": "sgv"}]'
-curl -X POST "http://YOUR_HA_IP:8123/api/v3/treatments" -H "Content-Type: application/json" -H "api-secret: $SECRET_SHA1" -d '[{"eventType": "Correction Bolus", "insulin": 2.5, "created_at": '"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'}]'
+curl -s "http://YOUR_HA_IP:8123/hagng/api/v2/authorization/request/$SECRET"
+curl -X POST "http://YOUR_HA_IP:8123/hagng/api/v3/entries" -H "Content-Type: application/json" -H "api-secret: $SECRET_SHA1" -d '[{"sgv": 120, "date": '"$(date +%s%3N)"', "direction": "Flat", "type": "sgv"}]'
+curl -X POST "http://YOUR_HA_IP:8123/hagng/api/v3/treatments" -H "Content-Type: application/json" -H "api-secret: $SECRET_SHA1" -d '[{"eventType": "Correction Bolus", "insulin": 2.5, "created_at": '"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'}]'
 ```
 
 ---

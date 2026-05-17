@@ -7,6 +7,7 @@
         "data": {
           "shared_secret": "Secreto compartido",
           "name": "Nombre del sensor",
+          "url_prefix": "Prefijo URL (ej. hagng)",
           "threshold_low": "Umbral bajo (mg/dL)",
           "threshold_high": "Umbral alto (mg/dL)",
           "rate_drop": "Caída rápida |tasa| (mg/dL/min)"

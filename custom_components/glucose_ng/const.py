@@ -3,11 +3,13 @@ DOMAIN = "glucose_ng"
 
 CONF_SHARED_SECRET = "shared_secret"
 CONF_NAME = "name"
+CONF_URL_PREFIX = "url_prefix"
 CONF_LOW = "threshold_low"
 CONF_HIGH = "threshold_high"
 CONF_RATE_DROP = "rate_drop"
 
 DEFAULT_NAME = "Glucosa"
+DEFAULT_URL_PREFIX = "hagng"
 DEFAULT_LOW = 70.0
 DEFAULT_HIGH = 180.0
 DEFAULT_RATE_DROP = 3.0  # mg/dL/min

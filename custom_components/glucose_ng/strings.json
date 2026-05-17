@@ -7,6 +7,7 @@
         "data": {
           "shared_secret": "Shared secret",
           "name": "Sensor name",
+          "url_prefix": "URL prefix (e.g. hagng)",
           "threshold_low": "Low threshold (mg/dL)",
           "threshold_high": "High threshold (mg/dL)",
           "rate_drop": "Rapid drop |rate| (mg/dL/min)"
