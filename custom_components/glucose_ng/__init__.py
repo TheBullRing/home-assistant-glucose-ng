@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+import hashlib
 import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -25,6 +26,10 @@ _ENTRIES = "entries"
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
+def _sha1(s: str) -> str:
+    return hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data.setdefault(DOMAIN, {_TOKEN_MAP: {}, _ENTRIES: {}})
     return True
@@ -42,13 +47,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
     hass.data[DOMAIN][_ENTRIES][entry.entry_id] = entry_data
 
-    # Maintain a token_map: {shared_secret → entry_id} for all active entries.
-    # HTTP views use this map to route requests to the correct set of sensors.
+    # Store sha1(secret) → entry_id so the plaintext secret is never held in
+    # hass.data where other integrations could read it.
     secret = entry_data[CONF_SHARED_SECRET]
     if secret:
-        hass.data[DOMAIN][_TOKEN_MAP][secret] = entry.entry_id
+        hass.data[DOMAIN][_TOKEN_MAP][_sha1(secret)] = entry.entry_id
         _LOGGER.debug(
-            "Registered token for entry '%s' (entry_id=%s). Total entries: %d",
+            "Registered token digest for entry '%s' (entry_id=%s). Total entries: %d",
             entry_data[CONF_NAME], entry.entry_id,
             len(hass.data[DOMAIN][_TOKEN_MAP]),
         )
@@ -80,13 +85,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry_data = hass.data[DOMAIN][_ENTRIES].pop(entry.entry_id, {})
         secret = entry_data.get(CONF_SHARED_SECRET)
         if secret:
-            hass.data[DOMAIN][_TOKEN_MAP].pop(secret, None)
+            hass.data[DOMAIN][_TOKEN_MAP].pop(_sha1(secret), None)
         _LOGGER.debug(
             "Unloaded entry_id=%s. Remaining entries: %d",
             entry.entry_id, len(hass.data[DOMAIN][_TOKEN_MAP]),
         )
-        # If no entries remain, also clear HTTP view registration flag
-        # so views can be re-registered if the integration is fully removed and re-added.
+        # If no entries remain, unregister HTTP views so they can be re-registered
+        # with a potentially different prefix if the integration is re-added.
         if not hass.data[DOMAIN][_TOKEN_MAP]:
             unregister_http_views(hass)
     return unload_ok

@@ -43,7 +43,7 @@ def _device_info(entry: ConfigEntry, name: str) -> DeviceInfo:
         name=f"Glucose NG — {name}",
         manufacturer="Juggluco / NightScout Gateway",
         model="CGM Sensor Bridge",
-        sw_version="0.3.0",
+        sw_version="1.0.2",
     )
 
 
@@ -135,16 +135,15 @@ class GlucoseValueSensor(BaseGlucoseSensor):
 
             self._value = new_val
             
+            # Whitelisted fields are now promoted to the top level of the payload
+            # (no longer nested under "raw"). Read them directly from the reading dict.
+            _READING_FIELDS = ("device", "noise", "rssi", "type", "filtered", "unfiltered")
             attrs = {
                 "direction": reading.get("direction"),
                 "timestamp_ms": ts_ms,
                 "last_updated_ts": now_ts,
+                **{k: reading[k] for k in _READING_FIELDS if k in reading},
             }
-            
-            raw_data = reading.get("raw", {})
-            for key in ("device", "noise", "rssi", "type", "filtered", "unfiltered"):
-                if key in raw_data:
-                    attrs[key] = raw_data[key]
                     
             self._attrs = attrs
             self._available = True

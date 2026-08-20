@@ -194,5 +194,50 @@ The event includes `title`, `message`, and `entry_id`.
 
 ---
 
+---
+
+# 🔒 Security notes
+
+This integration exposes HTTP endpoints to the internet so your CGM uploader can reach Home Assistant from outside your home. Please follow these guidelines to keep your glucose data safe.
+
+## HTTPS is mandatory
+
+**Never expose Home Assistant over plain HTTP.** All traffic must be encrypted. Use one of:
+
+- **Home Assistant Cloud (Nabu Casa)** — HTTPS is handled automatically.
+- **Nginx / Caddy reverse proxy** — configure a TLS certificate (e.g. Let's Encrypt). The proxy must terminate TLS before forwarding to HA.
+
+Sending the shared secret over plain HTTP allows anyone observing the network to steal it and post arbitrary readings to your sensors.
+
+## Choose a strong shared secret
+
+The Nightscout protocol transmits your shared secret as its SHA-1 hash. SHA-1 is fast to brute-force, so a weak secret (short, dictionary word, or predictable pattern) can be recovered from a captured hash.
+
+**Requirements for the shared secret:**
+- Minimum **16 characters**
+- Use a mix of letters, numbers, and symbols — or a random passphrase of 4+ words
+- Do **not** reuse passwords from other services
+
+You can generate a suitable secret with:
+```
+python3 -c "import secrets; print(secrets.token_urlsafe(24))"
+```
+
+## Avoid the `?token=` query parameter
+
+The integration accepts the secret as a `?token=` query parameter for compatibility with some follower apps. However, query parameters are recorded in:
+
+- Reverse proxy access logs (visible to anyone with log access)
+- Browser history
+- HTTP `Referer` headers sent to third-party pages
+
+Prefer the `api-secret` header whenever your uploader supports it (Juggluco, xDrip, and GlucoDataHandler all do).
+
+## Keep your URL prefix non-obvious
+
+The integration requires a non-empty URL prefix (default `hagng`). While this is not a security measure on its own, using a non-default value makes automated scanning less likely to find your endpoints.
+
+---
+
 # 📄 License
 MIT

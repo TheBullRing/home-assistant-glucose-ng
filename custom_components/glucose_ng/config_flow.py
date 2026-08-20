@@ -17,7 +17,6 @@ DATA_SCHEMA = vol.Schema({
     vol.Optional(CONF_URL_PREFIX, default=DEFAULT_URL_PREFIX): str,
     vol.Optional(CONF_LOW, default=DEFAULT_LOW): vol.Coerce(float),
     vol.Optional(CONF_HIGH, default=DEFAULT_HIGH): vol.Coerce(float),
-    # Fixed: was `str`, must be float so __init__ / sensor.py can safely call float() on it
     vol.Optional(CONF_RATE_DROP, default=DEFAULT_RATE_DROP): vol.Coerce(float),
 })
 
@@ -31,11 +30,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 low = float(user_input.get(CONF_LOW, DEFAULT_LOW))
                 high = float(user_input.get(CONF_HIGH, DEFAULT_HIGH))
-                if low >= high:
+                url_prefix = user_input.get(CONF_URL_PREFIX, DEFAULT_URL_PREFIX).strip().strip("/")
+
+                if not url_prefix:
+                    errors[CONF_URL_PREFIX] = "prefix_required"
+                elif low >= high:
                     errors["base"] = "range_invalid"
                 else:
-                    # Sanitize URL prefix: strip slashes and whitespace (empty = no prefix)
-                    url_prefix = user_input.get(CONF_URL_PREFIX, DEFAULT_URL_PREFIX).strip().strip("/")
                     _LOGGER.debug(
                         "Creating config entry: name=%s, url_prefix=%s, low=%.1f, high=%.1f",
                         user_input.get(CONF_NAME), url_prefix, low, high,

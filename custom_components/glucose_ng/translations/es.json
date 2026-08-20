@@ -2,21 +2,30 @@
   "config": {
     "step": {
       "user": {
-        "title": "Home Assistant Glucose NG (NightScout Gateway)",
-        "description": "Introduce secreto compartido, nombre del sensor y umbrales.",
+        "title": "Home Assistant Glucose NG",
+        "description": "Introduce el secreto compartido y configura la integración.",
         "data": {
           "shared_secret": "Secreto compartido",
           "name": "Nombre del sensor",
-          "url_prefix": "Prefijo URL (ej. hagng)",
+          "url_prefix": "Prefijo URL",
           "threshold_low": "Umbral bajo (mg/dL)",
           "threshold_high": "Umbral alto (mg/dL)",
-          "rate_drop": "Caída rápida |tasa| (mg/dL/min)"
+          "rate_drop": "Tasa de caída rápida (mg/dL/min)"
+        },
+        "data_description": {
+          "shared_secret": "El secreto configurado en tu aplicación CGM (Juggluco, xDrip, etc.). Se recomiendan mínimo 16 caracteres.",
+          "name": "Nombre para identificar el sensor, p. ej. 'Alice' o 'Glucosa'.",
+          "url_prefix": "Prefijo de ruta URL para los endpoints Nightscout, p. ej. 'hagng'. No puede estar vacío.",
+          "threshold_low": "Valor de glucosa por debajo del cual se activa una alerta de hipoglucemia.",
+          "threshold_high": "Valor de glucosa por encima del cual se activa una alerta de hiperglucemia.",
+          "rate_drop": "Tasa de cambio absoluta (mg/dL/min) que activa una alerta de caída rápida."
         }
       }
     },
     "error": {
-      "range_invalid": "El umbral bajo debe ser menor que el alto",
-      "invalid": "Valores no válidos"
+      "range_invalid": "El umbral bajo debe ser menor que el umbral alto.",
+      "prefix_required": "El prefijo URL no puede estar vacío.",
+      "invalid": "Error inesperado. Revisa los registros de Home Assistant."
     }
   }
 }

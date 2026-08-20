@@ -2,21 +2,30 @@
   "config": {
     "step": {
       "user": {
-        "title": "Home Assistant Glucose NG (NightScout Gateway)",
-        "description": "Enter your shared secret, sensor name and thresholds.",
+        "title": "Home Assistant Glucose NG",
+        "description": "Enter your shared secret and configure the integration.",
         "data": {
           "shared_secret": "Shared secret",
           "name": "Sensor name",
-          "url_prefix": "URL prefix (e.g. hagng)",
+          "url_prefix": "URL prefix",
           "threshold_low": "Low threshold (mg/dL)",
           "threshold_high": "High threshold (mg/dL)",
-          "rate_drop": "Rapid drop |rate| (mg/dL/min)"
+          "rate_drop": "Rapid drop rate (mg/dL/min)"
+        },
+        "data_description": {
+          "shared_secret": "The secret configured in your CGM uploader (Juggluco, xDrip, etc.). Minimum 16 characters recommended.",
+          "name": "Name used to identify the sensor, e.g. 'Alice' or 'Glucosa'.",
+          "url_prefix": "URL path prefix for the Nightscout endpoints, e.g. 'hagng'. Must not be empty.",
+          "threshold_low": "Glucose value below which a hypoglycemia alert fires.",
+          "threshold_high": "Glucose value above which a hyperglycemia alert fires.",
+          "rate_drop": "Absolute rate of change (mg/dL/min) that triggers a rapid-drop alert."
         }
       }
     },
     "error": {
-      "range_invalid": "Low must be less than High",
-      "invalid": "Invalid values"
+      "range_invalid": "Low threshold must be less than High threshold.",
+      "prefix_required": "URL prefix must not be empty.",
+      "invalid": "Unexpected error. Check the Home Assistant logs."
     }
   }
 }
