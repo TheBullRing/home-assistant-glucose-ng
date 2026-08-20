@@ -16,6 +16,6 @@
     "custom_components.glucose_ng"
   ],
   "requirements": [],
-  "version": "1.0.2",
+  "version": "1.0.3",
   "homeassistant": "2024.1.0"
 }

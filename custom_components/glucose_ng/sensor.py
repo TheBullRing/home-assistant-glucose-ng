@@ -43,7 +43,7 @@ def _device_info(entry: ConfigEntry, name: str) -> DeviceInfo:
         name=f"Glucose NG — {name}",
         manufacturer="Juggluco / NightScout Gateway",
         model="CGM Sensor Bridge",
-        sw_version="1.0.2",
+        sw_version="1.0.3",
     )
 
 
