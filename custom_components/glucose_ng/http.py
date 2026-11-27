@@ -198,8 +198,8 @@ class _BasePostEventView(HomeAssistantView):
     async def post(self, request: web.Request):
         req_id = uuid.uuid4().hex[:6]
         _LOGGER.debug(
-            "[%s] %s POST received. URL=%s",
-            req_id, self.__class__.__name__, request.url,
+            "[%s] %s POST received. path=%s",
+            req_id, self.__class__.__name__, request.path,
         )
 
         token_map = self._get_token_map()
@@ -284,7 +284,7 @@ class _BasePostEventView(HomeAssistantView):
         For others, we return an empty array `[]` so the client doesn't crash.
         """
         req_id = uuid.uuid4().hex[:6]
-        _LOGGER.debug("[%s] %s GET received. URL=%s", req_id, self.__class__.__name__, request.url)
+        _LOGGER.debug("[%s] %s GET received. path=%s", req_id, self.__class__.__name__, request.path)
 
         if self._signal_name not in (SIGNAL_NEW_READING, SIGNAL_NEW_TREATMENT):
             _LOGGER.debug("[%s] %s: unsupported GET endpoint for signal %s. returning empty [].", req_id, self.__class__.__name__, self._signal_name)
